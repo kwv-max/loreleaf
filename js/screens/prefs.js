@@ -48,6 +48,7 @@ export function prefsScreen() {
         choice('quotes', [
           { value: 'curly', label: '둥근 따옴표', sample: '“가자.” ‘왜?’' },
           { value: 'straight', label: '곧은 따옴표', sample: '"가자." \'왜?\'' },
+          { value: 'corner', label: '낫표', sample: '「가자.」『왜?』' },
         ]),
         h('p', { class: 'muted small' }, '대사 줄 여백에 보이는 모양이고, 텍스트로 내보내거나 복사할 때도 이 모양으로 붙어요.'))));
 }

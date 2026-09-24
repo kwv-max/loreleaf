@@ -60,6 +60,9 @@ async function boot() {
   if (first) welcome();
   if (!ok) toast('이 브라우저에서는 저장이 되지 않을 수 있어요. (사생활 보호 모드?)', { duration: 6000 });
 
+  // 브라우저가 공간이 모자랄 때 글을 지우지 않도록 (특히 아이폰 사파리)
+  navigator.storage?.persist?.().catch(() => {});
+
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }

@@ -4,12 +4,13 @@
 import { pref } from './prefs.js';
 import { diffRange } from './anchors.js';
 
-const PAIRS = [['“', '”'], ['"', '"'], ['‘', '’'], ["'", "'"]];
+const PAIRS = [['“', '”'], ['"', '"'], ['‘', '’'], ["'", "'"], ['「', '」'], ['『', '』']];
 const STYLE = {
   curly: { d: ['“', '”'], s: ['‘', '’'] },
   straight: { d: ['"', '"'], s: ["'", "'"] },
+  corner: { d: ['「', '」'], s: ['『', '』'] }, // 일본어·중국어 원고식 낫표
 };
-export const quoteChars = (flag, style = pref('quotes')) => STYLE[style][flag];
+export const quoteChars = (flag, style = pref('quotes')) => (STYLE[style] || STYLE.curly)[flag];
 
 function split(line) {
   const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);
@@ -22,23 +23,23 @@ export function quoteState(line) {
   if (!b) return 'empty';
   for (const [o, c] of PAIRS) {
     if (b.length >= 2 && b.startsWith(o) && b.endsWith(c)) {
-      const family = o === '“' || o === '"' ? /[“”"]/ : /[‘’']/;
+      const family = { '“': /[“”"]/, '"': /[“”"]/, '‘': /[‘’']/, "'": /[‘’']/, '「': /[「」]/, '『': /[『』]/ }[o];
       return family.test(b.slice(1, -1)) ? 'mixed' : 'quoted';
     }
   }
-  return /[“”"‘’]/.test(b) ? 'mixed' : 'plain';
+  return /[“”"‘’「」『』]/.test(b) ? 'mixed' : 'plain';
 }
 
 // 글자 따옴표로 감싼 줄 → [따옴표 뗀 줄, 'd'|'s']
 export function unquote(line) {
   const [lead, body, trail] = split(line);
-  return [lead + body.slice(1, -1) + trail, /^[“"]/.test(body) ? 'd' : 's'];
+  return [lead + body.slice(1, -1) + trail, /^[“"「]/.test(body) ? 'd' : 's'];
 }
 
 export function wrapLine(line, flag, style = pref('quotes')) {
   if (!flag || !line.trim()) return line;
   const [lead, body, trail] = split(line);
-  const [o, c] = STYLE[style][flag];
+  const [o, c] = quoteChars(flag, style);
   return lead + o + body + c + trail;
 }
 
@@ -84,6 +85,7 @@ export function remapFlags(flags, O, N, caret = N.length) {
 // 곧은 따옴표 → 둥근 따옴표는 앞 글자를 보고 여는지 닫는지 정한다 (공백·줄 시작·여는 괄호 뒤면 여는 것).
 export function normalizeQuotes(text, style = pref('quotes')) {
   if (style === 'straight') return text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+  if (style === 'corner') return text; // 줄 안의 따옴표는 작가가 쓴 그대로
   return text.replace(/["']/g, (q, i) => {
     const open = i === 0 || /[\s(\[{<“‘—–-]/.test(text[i - 1]);
     return q === '"' ? (open ? '“' : '”') : (open ? '‘' : '’');

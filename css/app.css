@@ -229,6 +229,13 @@ mark {
 .p.sq::after { content: "’"; right: -13px; bottom: 0; }
 .qs-straight .p.dq::before, .qs-straight .p.dq::after { content: '"'; }
 .qs-straight .p.sq::before, .qs-straight .p.sq::after { content: "'"; }
+/* 낫표는 전각이라 글자 폭이 넓어서, 여백 안에 들어오게 조금 작게 */
+.qs-corner .p.dq::before, .qs-corner .p.dq::after, .qs-corner .p.sq::before, .qs-corner .p.sq::after { font-size: .8em; font-weight: 400; }
+.qs-corner .p.dq::before, .qs-corner .p.sq::before { left: -17px; }
+.qs-corner .p.dq::before { content: "「"; }
+.qs-corner .p.dq::after { content: "」"; }
+.qs-corner .p.sq::before { content: "『"; }
+.qs-corner .p.sq::after { content: "』"; }
 
 /* 찾기 결과 레이어 */
 .ed-find { position: absolute; inset: 0; color: transparent; pointer-events: none; }
@@ -624,3 +631,9 @@ mark.multi {
 .accent-opt.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .accent-opt.on .accent-label { color: var(--accent); font-weight: 700; }
 .accent-label { font-size: 13px; color: var(--ink-2); }
+
+/* 아이폰 설치 안내 */
+.ios-tip { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 12px; padding: 12px 8px 12px 14px; border-radius: 14px; background: var(--accent-soft); color: var(--ink); }
+.ios-tip b { color: var(--accent); }
+.ios-tip p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.ios-tip > div { flex: 1; }

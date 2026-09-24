@@ -68,6 +68,7 @@ export function editorScreen({ wid, cid }) {
   const lineHTML = (i) => highlightHTML(lineText(i), matcher, [flags[i]]);
   function paint() {
     wrap.classList.toggle('qs-straight', pref('quotes') === 'straight');
+    wrap.classList.toggle('qs-corner', pref('quotes') === 'corner');
     backdrop.innerHTML = highlightHTML(ta.value, matcher, flags);
     notesLayer.innerHTML = notesHTML(ta.value, notes);
     if (!highlightSeen && backdrop.querySelector('mark')) { highlightSeen = true; emit('highlight-shown'); }

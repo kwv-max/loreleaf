@@ -1,9 +1,10 @@
 // 작품 목록. 가장 먼저 보이는 건 "이어 쓰기" 하나.
 import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast, download, josa } from '../ui.js';
-import { db, worksSorted, chaptersOf, createWork, deleteWork, put, exportAll, importAll } from '../store.js';
+import { db, worksSorted, chaptersOf, createWork, deleteWork, put, importAll } from '../store.js';
 import { go } from '../router.js';
 import { emit } from '../guide.js';
 import { manuscriptText, lengthOf } from '../quotes.js';
+import { saveBackup, lastBackup, canOverwrite } from '../backup.js';
 
 export async function newWork() {
   const title = await ask('새 작품', { placeholder: '작품 제목', ok: '만들기' });
@@ -37,15 +38,27 @@ export function exportText(w) {
   download(`${w.title}.txt`, `${w.title}\n\n\n${body}\n`);
 }
 
+// 백업: 한 번 고른 파일에 덮어쓴다. 어디에 언제 저장했는지 메뉴에 보여 준다.
+function backupItems() {
+  const last = lastBackup();
+  const run = (pickNew) => async () => {
+    try {
+      const name = await saveBackup({ pickNew });
+      if (name) toast(canOverwrite() ? `‘${name}’에 백업했어요.` : `‘${name}’로 내려받았어요.`);
+    } catch (e) { toast(e.message || '백업하지 못했어요.'); }
+  };
+  if (!canOverwrite() || !last) return [{ label: '백업 파일 저장', run: run(false) }];
+  return [
+    { label: `백업 저장 · ${last.name} (${relTime(last.at)})`, run: run(false) },
+    { label: '다른 파일에 백업', run: run(true) },
+  ];
+}
+
 function appMenu() {
   actions([
     { label: '환경 설정', run: () => go('/prefs') },
     { label: '도움말', run: () => go('/help') },
-    { label: '백업 파일 저장', run: () => {
-      const d = new Date();
-      download(`갈피-백업-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`,
-        JSON.stringify(exportAll()), 'application/json');
-    } },
+    ...backupItems(),
     { label: '백업 파일 불러오기', run: () => {
       const input = h('input', { type: 'file', accept: '.json,application/json' });
       input.onchange = async () => {
@@ -91,8 +104,24 @@ export function libraryScreen() {
   return h('div', { class: 'screen' },
     topbar({ title: '갈피', right: [iconBtn('help', '도움말', () => go('/help')), iconBtn('more', '메뉴', appMenu)] }),
     h('main', { class: 'content' },
+      iosInstallTip(),
       resume,
       works.length ? h('h2', { class: 'section' }, '작품') : null,
       list),
     h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), '새 작품')));
+}
+
+// 아이폰 사파리에서는 설치 버튼이 따로 뜨지 않는다. 홈 화면에 추가하는 법을 한 번 알려 준다.
+// 홈 화면에 추가해야 앱처럼 열리고, 사파리가 오래 안 쓴 사이트의 저장 공간을 비울 때도 글이 안전하다.
+function iosInstallTip() {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let seen = false;
+  try { seen = !!localStorage.getItem('ll:ios-tip'); } catch {}
+  if (!ios || navigator.standalone || seen) return null;
+  const el = h('div', { class: 'ios-tip' },
+    h('div', null,
+      h('b', null, '홈 화면에 추가해 주세요'),
+      h('p', null, '아래 공유 버튼 → ‘홈 화면에 추가’를 누르면 앱처럼 열려요. 사파리에서만 쓰면, 오래 안 열었을 때 글이 지워질 수 있어요.')),
+    h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: () => { try { localStorage.setItem('ll:ios-tip', '1'); } catch {} el.remove(); } }, icon('close')));
+  return el;
 }
