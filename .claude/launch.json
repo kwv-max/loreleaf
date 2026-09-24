@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "loreleaf", "runtimeExecutable": "node", "runtimeArgs": ["serve.mjs"], "port": 5173 }
+  ]
+}

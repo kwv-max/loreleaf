@@ -1,0 +1,67 @@
+import { h, icon, toast } from './ui.js';
+import { initStore, db } from './store.js';
+import { route, render, onRender, go } from './router.js';
+import { decorate, startGuide } from './guide.js';
+import { insertSample } from './sample.js';
+import { libraryScreen } from './screens/library.js';
+import { manuscriptScreen, loreScreen } from './screens/work.js';
+import { categoryScreen } from './screens/lore.js';
+import { entryScreen } from './screens/entry.js';
+import { editorScreen } from './screens/editor.js';
+import { helpScreen } from './screens/help.js';
+import { prefsScreen } from './screens/prefs.js';
+
+route('/', libraryScreen);
+route('/help', helpScreen);
+route('/prefs', prefsScreen);
+route('/w/:wid', manuscriptScreen);
+route('/w/:wid/lore', loreScreen);
+route('/w/:wid/lore/:type', categoryScreen);
+route('/w/:wid/lore/:type/:fid', categoryScreen);
+route('/w/:wid/c/:cid', editorScreen);
+route('/w/:wid/e/:eid', entryScreen);
+
+const LAST = 'll:last';
+onRender((p) => {
+  try { localStorage.setItem(LAST, p); } catch {}
+  decorate();
+});
+
+function welcome() {
+  const close = () => { try { localStorage.setItem('ll:welcomed', '1'); } catch {} el.remove(); };
+  const sampleId = [...db.works.values()].find((w) => w.sample)?.id;
+  const el = h('div', { class: 'welcome' },
+    h('div', { class: 'welcome-inner' },
+      icon('leaf', 'welcome-leaf'),
+      h('h1', null, '갈피'),
+      h('p', { class: 'welcome-lead' }, '쓰는 건 당신이, 기억하는 건 갈피가.'),
+      h('p', { class: 'muted' }, '등장인물을 등록해 두면, 본문에 이름이 나올 때마다 알아서 표시하고 설정을 바로 보여줘요.'),
+      h('div', { class: 'welcome-actions' },
+        h('button', { class: 'btn primary', onclick: () => { close(); startGuide(); go('/', { replace: true }); } }, '1분 만에 해보기'),
+        sampleId ? h('button', { class: 'btn ghost', onclick: () => { close(); go('/w/' + sampleId); } }, '샘플 작품 구경하기') : null,
+        h('button', { class: 'link-btn center', onclick: close }, '바로 시작할게요'))));
+  document.body.append(el);
+}
+
+async function boot() {
+  const ok = await initStore();
+  let first = false;
+  try { first = !localStorage.getItem('ll:welcomed'); } catch {}
+  if (first && !db.works.size) insertSample();
+
+  // 앱을 다시 열면 마지막으로 보던 곳으로.
+  if (!location.hash) {
+    let last = null;
+    try { last = localStorage.getItem(LAST); } catch {}
+    if (last && last !== '/') history.replaceState(null, '', '#' + last);
+  }
+  render();
+  if (first) welcome();
+  if (!ok) toast('이 브라우저에서는 저장이 되지 않을 수 있어요. (사생활 보호 모드?)', { duration: 6000 });
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+boot();
