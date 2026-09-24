@@ -801,7 +801,7 @@ export function editorScreen({ wid, cid }) {
 
   // ---- 첫 표시 & 위치 복구 ----
   paint();
-  updateCount.flush();
+  updateCount(); updateCount.flush(); // 처음 글자 수는 바로
   setTimeout(() => {
     if (jump && jump.cid === cid) {
       const { index, len, find } = jump;

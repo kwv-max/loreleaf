@@ -400,6 +400,7 @@ export function entryScreen({ wid, eid }) {
     actions([
       foldersOf(wid, e.type).length || e.folderId ? { label: '폴더로 옮기기', run: () => moveToFolder(e) } : null,
       { label: '삭제', danger: true, run: () => {
+        save.cancel(); // 지운 뒤에 남은 저장이 되살리지 않도록
         del('entries', e.id);
         back(listPath);
         toast(`‘${e.name || '이름 없음'}’${josa(e.name || '음', '을', '를')} 지웠어요.`, {
@@ -428,6 +429,7 @@ export function entryScreen({ wid, eid }) {
   el.cleanup = () => {
     document.removeEventListener('selectionchange', onDocSelect);
     closeSel();
+    if (!db.entries.has(e.id)) return; // 이미 지운 설정은 다시 저장하지 않는다
     save.flush();
     const blank = !e.name.trim() && !e.aliases.length && !e.note.trim() && !e.fields.some((f) => f.value.trim());
     if (blank && db.entries.has(e.id)) del('entries', e.id);

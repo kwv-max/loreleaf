@@ -99,10 +99,11 @@ export function topbar({ onBack, title, right = [] }) {
 export const esc =(s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export function debounce(fn, ms) {
-  let t;
-  const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-  d.flush = (...a) => { clearTimeout(t); fn(...a); };
-  d.cancel = () => clearTimeout(t);
+  let t = null;
+  const d = (...a) => { clearTimeout(t); t = setTimeout(() => { t = null; fn(...a); }, ms); };
+  // 기다리는 저장이 있을 때만 바로 실행 (없으면 아무것도 안 한다)
+  d.flush = (...a) => { if (t == null) return; clearTimeout(t); t = null; fn(...a); };
+  d.cancel = () => { clearTimeout(t); t = null; };
   return d;
 }
 
