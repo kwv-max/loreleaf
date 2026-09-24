@@ -71,17 +71,24 @@ export function lineSwipe({ ta, backdrop, wrap, render, plan, commit, onStart })
     setTimeout(() => { ghost.remove(); cover.remove(); }, 190);
   }
 
+  // 처음 댄 손가락 하나만 따라간다. 도중에 다른 손가락이 닿아도 진행 중인 스와이프는 그대로 두고,
+  // 처음 손가락을 뗄 때 (또는 취소될 때) 반드시 정리한다.
+  const mine = (list) => (g ? [...list].find((t) => t.identifier === g.id) : null);
+
   ta.addEventListener('touchstart', (e) => {
-    g = null;
+    // 화면에 이 손가락 하나뿐인데 남은 제스처가 있으면, 뗀 걸 놓친 것이니 정리하고 새로 시작
+    if (g && e.touches.length === 1) { if (g.mode === 'swipe') { g.dx = 0; finish(); } g = null; }
+    if (g) { if (g.mode !== 'swipe') g.mode = 'off'; return; } // 두 번째 손가락: 끌기 시작 전이면 스와이프 안 함
     if (e.touches.length !== 1) return;
     if (document.activeElement === ta && ta.selectionStart !== ta.selectionEnd) return; // 선택 핸들을 끄는 중일 수 있다
     const t = e.touches[0];
-    g = { x: t.clientX, y: t.clientY, mode: null };
+    g = { id: t.identifier, x: t.clientX, y: t.clientY, mode: null };
   }, { passive: true });
 
   ta.addEventListener('touchmove', (e) => {
     if (!g || g.mode === 'off') return;
-    const t = e.touches[0];
+    const t = mine(e.touches);
+    if (!t) return;
     const dx = t.clientX - g.x, dy = t.clientY - g.y;
     if (!g.mode) {
       if (Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)) { g.mode = 'off'; return; }
@@ -97,6 +104,11 @@ export function lineSwipe({ ta, backdrop, wrap, render, plan, commit, onStart })
     move(dx);
   }, { passive: false });
 
-  ta.addEventListener('touchend', () => { if (g?.mode === 'swipe') finish(); g = null; });
-  ta.addEventListener('touchcancel', () => { if (g?.mode === 'swipe') { g.dx = 0; finish(); } g = null; });
+  const end = (cancel) => (e) => {
+    if (!g || !mine(e.changedTouches)) return; // 다른 손가락을 뗀 것
+    if (g.mode === 'swipe') { if (cancel) g.dx = 0; finish(); }
+    g = null;
+  };
+  ta.addEventListener('touchend', end(false));
+  ta.addEventListener('touchcancel', end(true));
 }

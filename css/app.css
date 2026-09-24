@@ -174,7 +174,8 @@ input, textarea { font: inherit; color: inherit; }
 .ed-count { font-size: 12px; color: var(--muted); padding: 0 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 body.typing .ed-top .topbar-row { opacity: .22; }
 
-.ed-wrap { position: relative; flex: 1; }
+/* 줄을 옆으로 끌 때 화면 밖으로 삐져나가면 크롬이 페이지 폭을 늘리면서 맨 아래 스크롤이 튄다 → 잘라 낸다 */
+.ed-wrap { position: relative; flex: 1; overflow-x: clip; }
 .ed-backdrop, .ed-text, .ed-ghost, .ed-find, .ed-notes {
   margin: 0; border: 0;
   padding: 12px 22px calc(45vh + var(--bot));
@@ -222,7 +223,8 @@ mark {
 .p.dq::before, .p.dq::after, .p.sq::before, .p.sq::after {
   position: absolute; color: var(--accent); font-weight: 700; pointer-events: none;
 }
-.p.sq::before, .p.sq::after { color: var(--muted); }
+/* 생각 줄은 대사와 구분되게 포인트 색을 연하게 */
+.p.sq::before, .p.sq::after { color: color-mix(in srgb, var(--accent) 55%, var(--muted)); }
 .p.dq::before { content: "“"; left: -15px; top: 0; }
 .p.dq::after { content: "”"; right: -15px; bottom: 0; }
 .p.sq::before { content: "‘"; left: -13px; top: 0; }

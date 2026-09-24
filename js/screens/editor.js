@@ -746,9 +746,10 @@ export function editorScreen({ wid, cid }) {
   const TURN = 70;
   let drag = null;
   let dragged = false;
-  titleBtn.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false }; });
+  // 처음 댄 손가락 하나만 따라간다 (도중에 다른 손가락이 닿아도 무시)
+  titleBtn.addEventListener('pointerdown', (e) => { if (!drag || e.isPrimary) drag = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false }; });
   titleBtn.addEventListener('pointermove', (e) => {
-    if (!drag) return;
+    if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.on) {
       if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
@@ -772,7 +773,8 @@ export function editorScreen({ wid, cid }) {
     drag.dx = dx;
     drag.ready = ready;
   });
-  const endDrag = () => {
+  const endDrag = (e) => {
+    if (drag && e.pointerId !== drag.id) return;
     const d = drag;
     drag = null;
     if (!d?.on) return;
