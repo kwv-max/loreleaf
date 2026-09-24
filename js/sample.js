@@ -1,5 +1,6 @@
 // 샘플 작품. 설명서를 읽지 않아도, 만져보면 앱이 어떻게 도는지 알 수 있도록.
 import { put, uid, db } from './store.js';
+import { migrateChapter } from './quotes.js';
 
 const CH1 = `루멘에 첫눈이 내리던 밤, 유나는 성채의 서쪽 회랑을 혼자 걷고 있었다.
 
@@ -61,10 +62,18 @@ export function insertSample() {
   const E = (type, name, o = {}) => ({
     id: uid(), workId: wid, type, name, folderId: null, aliases: [], fields: [], note: '', color: null, createdAt: now, updatedAt: now, ...o,
   });
+  const [, c2, c3] = chapters.map((c) => c.id);
+  const Ch = (label, value, changes) => ({ ...F(label, value), changes: changes.map(([chapterId, v]) => ({ id: uid(), chapterId, value: v })) });
   const entries = [
     E('character', '유나', {
       color: '#f58fb0', aliases: ['마녀', '검은 여우'],
-      fields: [F('나이', '21세'), F('현재 위치', '수도 루멘'), F('소속', '왕립 기사단'), F('가진 물건', '여우 가면'), F('알고 있는 정보', '계약자가 셋이라는 것')],
+      fields: [
+        F('나이', '21세'),
+        Ch('현재 위치', '수도 루멘 성채', [[c2, '검은 숲'], [c3, '수도 루멘 성채 (단장실)']]),
+        F('소속', '왕립 기사단'),
+        F('가진 물건', '여우 가면'),
+        Ch('알고 있는 정보', '없음', [[c2, '누군가 검은 여우를 찾고 있다'], [c3, '계약자가 셋이라는 것']]),
+      ],
       note: '밤에만 움직인다. 추위를 잘 타지만 티를 내지 않는다.',
     }),
     E('character', '카이렌', {
@@ -77,19 +86,19 @@ export function insertSample() {
     }),
     E('character', '미로', {
       color: '#7cc98a', folderId: folderSide.id,
-      fields: [F('나이', '9세'), F('소속', '성채 부엌 심부름꾼'), F('몸 상태', '누군가의 마력으로 기억이 흐려짐')],
+      fields: [F('나이', '9세'), F('소속', '성채 부엌 심부름꾼'), Ch('몸 상태', '건강함', [[c2, '누군가의 마력으로 기억이 흐려짐']])],
     }),
     E('place', '루멘', { fields: [F('위치', '왕국 북부의 수도'), F('특징', '겨울이 길다. 성채가 도시 한가운데 있다.')] }),
     E('place', '검은 숲', { fields: [F('위치', '루멘 북쪽 성벽 너머'), F('분위기', '해가 지면 아무도 들어가지 않는다')] }),
     E('org', '왕립 기사단', { fields: [F('우두머리', '세라핀'), F('본거지', '루멘 성채')] }),
-    E('item', '여우 가면', { fields: [F('소유자', '유나'), F('능력', '계약이 깨어나면 따뜻해진다')] }),
+    E('item', '여우 가면', { fields: [F('소유자', '유나'), F('능력', '계약이 깨어나면 따뜻해진다'), Ch('상태', '차가움', [[c3, '미지근함 — 계약이 깨어나는 중']])] }),
     E('world', '마녀의 계약', { fields: [F('요약', '마녀는 계약으로 힘을 얻는다. 계약자는 서로의 이름을 부를 수 없다.')] }),
     E('memo', '2부 방향', { folderId: folderPlot.id, note: '세 번째 계약자는 카이렌? → 너무 뻔한가. 다른 후보도 생각해 보기.' }),
   ];
   const work = { id: wid, title: '검은 여우의 겨울', sample: true, createdAt: now, updatedAt: now - 1000, lastChapterId: chapters[0].id };
 
   put('works', work, { touch: false });
-  for (const c of chapters) put('chapters', c, { touch: false });
+  for (const c of chapters) { migrateChapter(c); put('chapters', c, { touch: false }); }
   for (const f of [folderSide, folderPlot]) put('folders', f, { touch: false });
   for (const e of entries) put('entries', e, { touch: false });
   return work;

@@ -1,20 +1,28 @@
 // 설정 한 장 (캐릭터, 장소 등). 양식을 채우는 느낌이 아니라 메모장에 적는 느낌으로.
 // 적는 즉시 저장되고, 이름을 비운 채 나가면 조용히 사라진다.
-import { h, icon, iconBtn, topbar, debounce, autogrow, actions, toast, hintOnce, josa } from '../ui.js';
-import { db, put, del, typeOf, uid, COLORS, foldersOf } from '../store.js';
+import { h, icon, iconBtn, topbar, debounce, autogrow, actions, toast, hintOnce, josa, pickIcon } from '../ui.js';
+import { db, put, del, typeOf, typesOf, iconOf, uid, COLORS, foldersOf, chaptersOf, entriesOf, createEntry } from '../store.js';
 import { appearances } from '../highlight.js';
 import { go, back } from '../router.js';
 import { emit } from '../guide.js';
 import { setJump } from './editor.js';
 import { moveToFolder } from './lore.js';
+import {
+  orderOf, valueAt, historyOf, hasChanges, removeChange, factSheet, pruneSame,
+  setViewAt, viewAtFor, linkOf, namedOfType, linkParts, mentionsOf,
+} from '../timeline.js';
 
 export function entryScreen({ wid, eid }) {
   const e = db.entries.get(eid);
   if (!e || e.workId !== wid) { go(`/w/${wid}/lore`, { replace: true }); return null; }
-  const t = typeOf(e.type);
+  const t = typeOf(e.type, wid);
   const isChar = e.type === 'character';
   const listPath = `/w/${wid}/lore/${e.type}` + (e.folderId ? '/' + e.folderId : '');
   const save = debounce(() => put('entries', e), 400);
+  const order = orderOf(wid);
+  let atCid = viewAtFor(wid); // null = 최신(마지막 화까지). 글을 쓰다 들어오면 그 화 시점
+  const atIdx = () => (atCid ? order.get(atCid) : Infinity);
+  const chTitle = (id) => db.chapters.get(id)?.title || '';
   const checkGuide = () => { if (e.name.trim() && e.aliases.length) emit('alias-added'); };
 
   // ---- 이름 ----
@@ -38,6 +46,13 @@ export function entryScreen({ wid, eid }) {
       e.aliases.push(...vals);
       save();
       checkGuide();
+      const shared = vals.flatMap((v) => [...db.entries.values()]
+        .filter((o) => o !== e && o.workId === wid && o.type === 'character' && (o.name.trim() === v || o.aliases.includes(v)))
+        .map((o) => [v, o.name]));
+      if (shared.length) {
+        const [v, who] = shared[0];
+        toast(`‘${v}’${josa(v, '은', '는')} ${who}도 쓰는 이름이에요. 본문에서 탭하면 누구인지 고를 수 있어요.`, { duration: 5000 });
+      }
       drawAliases();
       aliasBox.querySelector('.chip-input')?.focus();
       return true;
@@ -54,6 +69,18 @@ export function entryScreen({ wid, eid }) {
       input);
   }
   drawAliases();
+
+  // ---- 아이콘 (캐릭터 말고): 누르면 이 항목만 다른 아이콘 ----
+  const headIcon = isChar ? null : h('button', {
+    class: 'entry-icon', 'aria-label': '아이콘 바꾸기',
+    onclick: async () => {
+      const ic = await pickIcon(iconOf(e), { title: '아이콘', defaultLabel: e.icon ? `${t.label} 기본 아이콘으로` : null });
+      if (ic == null) return;
+      e.icon = ic || undefined;
+      save();
+      headIcon.replaceChildren(icon(iconOf(e)));
+    },
+  }, icon(iconOf(e)));
 
   // ---- 표시 색 (캐릭터): 팔레트 8개 + 마지막 칸은 직접 고르기 ----
   const headDot = h('span', { class: 'dot xl', style: `--c:${e.color}` });
@@ -81,33 +108,272 @@ export function entryScreen({ wid, eid }) {
     sync();
   }
 
+  // ---- 시점: 바뀐 기록이 있을 때만 보인다 ----
+  const atBar = h('div', { class: 'at-bar' });
+  function drawAt() {
+    const show = order.size > 1 && (hasChanges(e) || atCid);
+    atBar.hidden = !show;
+    if (!show) return;
+    atBar.replaceChildren(
+      h('span', { class: 'muted small' }, '시점'),
+      h('button', { class: 'at-btn', onclick: pickAt }, atCid ? chTitle(atCid) : '최신 (마지막 화까지)', icon('down')));
+  }
+  function pickAt() {
+    actions([
+      { label: (atCid ? '' : '✓ ') + '최신 (마지막 화까지)', run: () => setAt(null) },
+      ...chaptersOf(wid).map((c) => ({ label: (c.id === atCid ? '✓ ' : '') + c.title, run: () => setAt(c.id) })),
+    ], '몇 화 시점으로 볼까요?');
+  }
+  function setAt(cid) { atCid = cid; setViewAt(wid, cid); drawAt(); drawFields(); drawMentions(); }
+
   // ---- 설정 항목 ----
+  // 보이는 값은 지금 시점의 값. 고치면 그 값이 나온 기록(처음 값 또는 n화 기록)이 고쳐진다.
+  // 화마다 바뀐 값은 '＋ 몇 화부터 바뀜'으로 따로 남긴다.
   const fieldBox = h('div', { class: 'fields' });
   const suggestBox = h('div', { class: 'suggest' });
+  const opened = new Set(); // 기록을 펼친 항목
+  let closeOpenPeek = null; // 지금 펼쳐진 이름 미리보기
+  const keepFocus = (b) => { b.addEventListener('pointerdown', (ev) => ev.preventDefault()); return b; };
   function drawFields(focusId) {
+    closeOpenPeek = null;
     fieldBox.replaceChildren(...e.fields.map((f) => {
+      const cur = valueAt(f, atIdx(), order);
       const label = h('input', {
         class: 'field-label', value: f.label, placeholder: '항목', 'aria-label': '항목 이름',
         oninput: () => { f.label = label.value; save(); },
       });
       const value = autogrow(h('textarea', {
         class: 'field-value', rows: 1, placeholder: '내용', 'aria-label': f.label || '내용',
-        oninput: () => { f.value = value.value; save(); },
+        oninput: () => { if (cur.rec) cur.rec.value = value.value; else f.value = value.value; save(); drawChips(); },
       }));
-      value.value = f.value;
-      if (f.id === focusId) setTimeout(() => (f.label ? value : label).focus(), 30);
-      return h('div', { class: 'field' },
-        h('div', { class: 'field-top' }, label,
-          h('button', { class: 'icon-btn sm', 'aria-label': '항목 지우기', onclick: () => { e.fields = e.fields.filter((x) => x !== f); save(); drawFields(); } }, icon('close'))),
-        value);
+      value.value = cur.value;
+      value.addEventListener('select', () => onSelect(value, f));
+      // 고치다 보니 앞 화와 똑같아졌으면, 그 화에서 바뀐 게 아니니 기록을 없앤다
+      value.addEventListener('change', () => {
+        const n = pruneSame(f, order);
+        if (!n) return;
+        save();
+        toast(`앞 화와 같은 값이 된 기록 ${n}개를 지웠어요.`);
+        setTimeout(() => {
+          const a = document.activeElement;
+          drawAt();
+          drawFields(fieldBox.contains(a) ? a.closest('.field')?.dataset.fid : undefined);
+        }, 0);
+      });
+
+      // 연결: 이 항목 값에 나오는 이름을 어느 목록에서 찾을지 (보이는 이름과 따로 정한다)
+      const link = linkOf(f);
+      const linkPill = keepFocus(h('button', {
+        class: 'link-pill' + (link ? ' on' : ''),
+        onclick: () => actions([
+          { label: (link ? '' : '✓ ') + '연결 안 함', run: () => { f.link = null; save(); drawFields(); } },
+          ...typesOf(wid).filter((x) => x.key !== 'memo').map((x) => ({
+            label: (link === x.key ? '✓ ' : '') + `${x.label} 목록`,
+            run: () => { f.link = x.key; save(); drawFields(); },
+          })),
+        ], `‘${f.label || '이 항목'}’에 나오는 이름을 어느 목록에서 찾을까요?`),
+      }, link ? `→ ${typeOf(link, wid).label}` : '연결'));
+      // 연결된 항목은 평소엔 형광펜 보기(이름을 누르면 아래에 미리보기), 글 부분을 누르면 고치기
+      const targets = () => (link ? namedOfType(wid, link).filter((x) => x !== e) : []);
+      const view = link ? h('div', { class: 'field-value field-view', onclick: (ev) => tapView(ev) }) : null;
+      const peek = h('div', { class: 'lk-peek', hidden: true });
+      let peekId = null;
+      function drawView() {
+        if (!view) return;
+        view.replaceChildren(...(value.value
+          ? linkParts(value.value, targets()).map((p) => (p.e
+            ? h('mark', { class: 'lk' + (p.e.id === peekId ? ' on' : ''), 'data-id': p.e.id, style: `--c:${p.e.color || 'var(--accent)'}` }, p.t)
+            : p.t))
+          : [h('span', { class: 'ph' }, '내용')]));
+      }
+      function editMode(on) {
+        if (!view) return;
+        view.hidden = on;
+        value.hidden = !on;
+        if (!on) drawView();
+      }
+      function tapView(ev) {
+        const m = ev.target.closest('mark.lk');
+        if (m) { togglePeek(m.dataset.id); return; }
+        // 누른 자리에 커서를 두고 고치기
+        const at = offsetAt(view, ev.clientX, ev.clientY, value.value.length);
+        closePeek();
+        editMode(true);
+        value.dispatchEvent(new Event('input')); // 높이 맞추기
+        value.focus();
+        value.setSelectionRange(at, at);
+      }
+      function closePeek() { if (closeOpenPeek === closePeek) closeOpenPeek = null; peekId = null; peek.hidden = true; peek.replaceChildren(); drawView(); }
+      function togglePeek(id) {
+        if (peekId === id) { closePeek(); return; }
+        const x = db.entries.get(id);
+        if (!x) return;
+        if (closeOpenPeek !== closePeek) closeOpenPeek?.(); // 미리보기는 화면에 하나만
+        closeOpenPeek = closePeek;
+        peekId = id;
+        peek.hidden = false;
+        peek.replaceChildren(...peekOf(x, closePeek));
+        drawView();
+      }
+      if (view) { value.addEventListener('blur', () => { closeSel(); editMode(false); }); editMode(false); }
+
+      // 입력 중에는 지금 치는 말에 맞는 이름만 몇 개 추천 (누르면 그 말을 이름으로 바꾼다)
+      const chips = h('div', { class: 'link-chips' });
+      function drawChips() {
+        if (!link) { chips.replaceChildren(); return; }
+        const text = value.value;
+        const cut = Math.max(...[',', '，', '、', '/', '·', '\n'].map((s) => text.lastIndexOf(s))) + 1;
+        const token = text.slice(cut).trim();
+        const found = new Set(linkParts(text, targets()).filter((p) => p.e).map((p) => p.e));
+        const pool = targets().filter((x) => !found.has(x));
+        const hits = (token ? pool.filter((x) => x.name.includes(token) || x.aliases?.some((a) => a.includes(token))) : pool).slice(0, 6);
+        chips.replaceChildren(...hits.map((x) => keepFocus(h('button', {
+          class: 'lk-chip add',
+          style: `--c:${x.color || 'var(--accent)'}`,
+          onclick: () => {
+            const head = text.slice(0, cut).replace(/\s*$/, '');
+            value.value = head ? `${head}${/[,，、/·]$/.test(head) ? ' ' : ', '}${x.name}` : x.name;
+            value.dispatchEvent(new Event('input'));
+          },
+        }, '+ ' + x.name))));
+      }
+      drawChips();
+      if (f.id === focusId) setTimeout(() => { editMode(true); (f.label ? value : label).focus(); }, 30);
+
+      const hist = historyOf(f, order);
+      const open = opened.has(f.id);
+      const meta = hist.length > 1 ? h('button', {
+        class: 'field-meta',
+        onclick: () => { open ? opened.delete(f.id) : opened.add(f.id); drawFields(); },
+      }, cur.rec ? `${chTitle(cur.rec.chapterId)}부터 이 값` : '처음 값', ` · 바뀐 기록 ${hist.length - 1}`, icon(open ? 'up' : 'down')) : null;
+      const histList = hist.length > 1 && open ? h('div', { class: 'hist' }, hist.map((r) => h('div', { class: 'hist-row' + (r.rec === cur.rec ? ' on' : '') },
+        h('button', { class: 'hist-main', disabled: !r.rec, onclick: () => r.rec && setAt(r.rec.chapterId) },
+          h('span', { class: 'hist-when' }, r.rec ? chTitle(r.rec.chapterId) : '처음'),
+          h('span', { class: 'hist-val' }, r.value || '(비움)')),
+        r.rec ? h('button', {
+          class: 'icon-btn sm', 'aria-label': '이 기록 지우기',
+          onclick: () => {
+            const n = removeChange(e, f, r.rec);
+            if (n) toast(`그 뒤에 앞 화와 같아진 기록 ${n}개도 함께 지웠어요.`);
+            drawAt(); drawFields();
+          },
+        }, icon('close')) : null))) : null;
+      const addChange = order.size ? keepFocus(h('button', {
+        class: 'field-act',
+        onclick: async () => {
+          save.flush();
+          if (await factSheet(e, f, { mode: 'change', cid: atCid })) { opened.add(f.id); drawAt(); drawFields(); }
+        },
+      }, '＋ 몇 화부터 바뀜')) : null;
+
+      return h('div', { class: 'field' + (open ? ' open' : ''), 'data-fid': f.id },
+        h('div', { class: 'field-top' }, label, linkPill,
+          keepFocus(h('button', { class: 'icon-btn sm', 'aria-label': '항목 지우기', onclick: () => { e.fields = e.fields.filter((x) => x !== f); save(); drawFields(); } }, icon('close')))),
+        view, value, peek, chips, meta, histList, addChange);
     }));
     const used = new Set(e.fields.map((f) => f.label.trim()));
     const add = (label) => { const f = { id: uid(), label, value: '' }; e.fields.push(f); save(); drawFields(f.id); };
     suggestBox.replaceChildren(
-      ...t.fields.filter((l) => !used.has(l)).slice(0, 6).map((l) => h('button', { class: 'suggest-chip', onclick: () => add(l) }, '+ ' + l)),
+      ...[...new Set([...t.fields, ...entriesOf(wid, e.type).flatMap((x) => x.fields.map((f) => f.label.trim()))])]
+        .filter((l) => l && !used.has(l)).slice(0, 6).map((l) => h('button', { class: 'suggest-chip', onclick: () => add(l) }, '+ ' + l)),
       h('button', { class: 'suggest-chip plain', onclick: () => add('') }, '+ 직접 추가'));
   }
+  // 형광펜 이름을 눌렀을 때 항목 아래에 펼치는 미리보기
+  function peekOf(x, close) {
+    const xt = typeOf(x.type, wid);
+    const facts = x.fields
+      .map((f) => [f.label.trim(), valueAt(f, atIdx(), order).value.trim()])
+      .filter(([l, v]) => l && v)
+      .slice(0, 4);
+    return [
+      h('div', { class: 'lk-peek-head' },
+        x.type === 'character' ? h('span', { class: 'dot', style: `--c:${x.color}` }) : icon(iconOf(x), 'type-ic'),
+        h('b', null, x.name),
+        h('span', { class: 'muted small' }, x.type === 'character' && x.aliases.length ? x.aliases.join(' · ') : xt.label),
+        h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: close }, icon('close'))),
+      facts.length
+        ? h('dl', { class: 'peek-facts' }, facts.map(([l, v]) => [h('dt', null, l), h('dd', null, v)]))
+        : x.note?.trim() ? h('p', { class: 'lk-peek-note' }, x.note.trim()) : h('p', { class: 'muted small' }, '아직 적어둔 설정이 없어요.'),
+      h('button', { class: 'link-btn', onclick: () => go(`/w/${wid}/e/${x.id}`) }, '설정 열기', icon('chev')),
+    ];
+  }
+
+  // 글자를 누른 자리 → 값 속 몇 번째 글자인지
+  function offsetAt(box, x, y, fallback) {
+    let node = null, off = 0;
+    const p = document.caretPositionFromPoint?.(x, y);
+    if (p) { node = p.offsetNode; off = p.offset; }
+    else { const r = document.caretRangeFromPoint?.(x, y); if (r) { node = r.startContainer; off = r.startOffset; } }
+    if (!node || !box.contains(node) || box.querySelector('.ph')) return box.querySelector('.ph') ? 0 : fallback;
+    const r = document.createRange();
+    r.setStart(box, 0);
+    r.setEnd(node, off);
+    return r.toString().length;
+  }
+
+  // ---- 글자를 선택하면 설정으로 등록 ----
+  // 연결된 항목이면 그 목록으로, 아니면 어느 목록인지 묻고 그 항목을 그 목록과 잇는다.
+  let selChip = null;
+  function closeSel() { selChip?.remove(); selChip = null; }
+  function onSelect(ta, f) {
+    if (document.activeElement !== ta) return;
+    const s = ta.selectionStart, en = ta.selectionEnd;
+    const word = ta.value.slice(s, en).trim();
+    const link = linkOf(f);
+    const pool = link ? namedOfType(wid, link) : [...db.entries.values()].filter((x) => x.workId === wid);
+    const known = pool.some((x) => x.name.trim() === word || x.aliases?.includes(word));
+    if (!word || word.length > 20 || /\n/.test(word) || known) { closeSel(); return; }
+    const key = `${f.id}:${s}:${en}`;
+    if (selChip?.dataset.key === key) return;
+    closeSel();
+    const kind = link ? typeOf(link, wid).label : null;
+    const add = (type) => {
+      closeSel();
+      createEntry(wid, type, { name: word });
+      if (!link) f.link = type;
+      save();
+      const k = typeOf(type, wid).label;
+      toast(`‘${word}’${josa(word, '을', '를')} ${k} 목록에 등록했어요.`);
+      if (link) { ta.setSelectionRange(en, en); ta.dispatchEvent(new Event('input')); } // 추천 칩 갱신
+      else drawFields(); // 연결 표시가 새로 생긴다
+    };
+    selChip = h('div', { class: 'chip-row', 'data-key': key },
+      h('button', {
+        class: 'chip-btn',
+        onclick: () => (link ? add(link) : actions(
+          typesOf(wid).filter((x) => x.key !== 'memo').map((x) => ({ label: `${x.label} 목록`, run: () => add(x.key) })),
+          `‘${word}’${josa(word, '을', '를')} 어느 목록에 등록할까요?`)),
+      }, icon('plus'), link ? `‘${clip(word)}’ ${kind}${josa(kind, '으로', '로')} 등록` : `‘${clip(word)}’ 설정으로 등록`));
+    selChip.addEventListener('pointerdown', (ev) => ev.preventDefault());
+    document.body.append(selChip);
+  }
+  const clip = (s) => (s.length > 8 ? s.slice(0, 8) + '…' : s);
+  const onDocSelect = () => {
+    const ta = document.activeElement;
+    if (!ta?.classList?.contains('field-value')) { closeSel(); return; }
+    ta.dispatchEvent(new Event('select'));
+  };
+  document.addEventListener('selectionchange', onDocSelect);
+
+  // ---- 연결된 곳: 다른 설정에서 이 설정을 가리키는 항목 (시점 기준) ----
+  const mentionBox = h('section', { class: 'entry-sec' });
+  function drawMentions() {
+    const list = e.name.trim() ? mentionsOf(e, atCid) : [];
+    mentionBox.hidden = !list.length;
+    mentionBox.replaceChildren(
+      h('h3', null, '연결된 곳', h('span', { class: 'count' }, list.length)),
+      h('div', { class: 'list' }, list.map(({ entry, field, value }) => h('div', { class: 'row' },
+        h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/e/${entry.id}`) },
+          entry.color ? h('span', { class: 'dot lg', style: `--c:${entry.color}` }) : icon(iconOf(entry), 'type-ic'),
+          h('div', null,
+            h('div', { class: 'row-title' }, entry.name, h('span', { class: 'muted small' }, field.label)),
+            h('div', { class: 'row-sub' }, value))),
+        icon('chev', 'chev')))));
+  }
+
   drawFields();
+  drawAt();
+  drawMentions();
 
   // ---- 메모 ----
   const note = autogrow(h('textarea', {
@@ -147,11 +413,12 @@ export function entryScreen({ wid, eid }) {
   const el = h('div', { class: 'screen' },
     topbar({ onBack: () => back(listPath), title: t.label, right: [iconBtn('more', '메뉴', menu)] }),
     h('main', { class: 'content entry' },
-      h('div', { class: 'entry-head' }, isChar ? headDot : icon(t.icon, 'type-ic'), name),
+      h('div', { class: 'entry-head' }, isChar ? headDot : headIcon, name),
       isChar ? h('section', { class: 'entry-sec' }, h('h3', null, '별명'), aliasBox,
         h('p', { class: 'muted small' }, '이름과 별명이 본문에 나오면 형광펜으로 표시돼요.')) : null,
       isChar ? h('section', { class: 'entry-sec' }, h('h3', null, '표시 색'), colors) : null,
-      h('section', { class: 'entry-sec' }, h('h3', null, '설정'), fieldBox, suggestBox),
+      h('section', { class: 'entry-sec' }, h('h3', null, '설정'), atBar, fieldBox, suggestBox),
+      mentionBox,
       h('section', { class: 'entry-sec' }, h('h3', null, '메모'), note),
       appearBox));
 
@@ -159,6 +426,8 @@ export function entryScreen({ wid, eid }) {
   else hintOnce('entry-autosave', '적는 즉시 저장돼요. 따로 저장 버튼은 없어요.');
 
   el.cleanup = () => {
+    document.removeEventListener('selectionchange', onDocSelect);
+    closeSel();
     save.flush();
     const blank = !e.name.trim() && !e.aliases.length && !e.note.trim() && !e.fields.some((f) => f.value.trim());
     if (blank && db.entries.has(e.id)) del('entries', e.id);

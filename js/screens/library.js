@@ -3,7 +3,7 @@ import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast
 import { db, worksSorted, chaptersOf, createWork, deleteWork, put, exportAll, importAll } from '../store.js';
 import { go } from '../router.js';
 import { emit } from '../guide.js';
-import { normalizeQuotes } from '../quotes.js';
+import { manuscriptText, lengthOf } from '../quotes.js';
 
 export async function newWork() {
   const title = await ask('새 작품', { placeholder: '작품 제목', ok: '만들기' });
@@ -27,9 +27,13 @@ export function workMenu(w, { onDeleted } = {}) {
   ], w.title);
 }
 
-// 원고만 깨끗하게. 형광펜 같은 표시는 애초에 원고에 없다. 따옴표는 환경 설정의 모양으로 통일.
+// 원고만 깨끗하게. 형광펜은 애초에 원고에 없고, 대사 줄에는 환경 설정의 모양으로 따옴표가 붙는다.
+export function exportChapter(w, c) {
+  download(`${w.title} - ${c.title}.txt`, `${c.title}\n\n${manuscriptText(c).trim()}\n`);
+}
+
 export function exportText(w) {
-  const body = chaptersOf(w.id).map((c) => `${c.title}\n\n${normalizeQuotes(c.text.trim())}`).join('\n\n\n');
+  const body = chaptersOf(w.id).map((c) => `${c.title}\n\n${manuscriptText(c).trim()}`).join('\n\n\n');
   download(`${w.title}.txt`, `${w.title}\n\n\n${body}\n`);
 }
 
@@ -72,7 +76,7 @@ export function libraryScreen() {
   const list = works.length
     ? h('div', { class: 'list' }, works.map((w) => {
       const chs = chaptersOf(w.id);
-      const chars = chs.reduce((n, c) => n + c.text.length, 0);
+      const chars = chs.reduce((n, c) => n + lengthOf(c), 0);
       return h('div', { class: 'row' },
         h('button', { class: 'row-main', onclick: () => go('/w/' + w.id) },
           h('div', { class: 'row-title' }, w.title, w.sample ? h('span', { class: 'badge' }, '샘플') : null),

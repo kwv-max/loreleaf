@@ -1,28 +1,53 @@
 // 환경 설정. 취향이 갈리는 것만 여기에. 항목이 늘어도 한 화면에서 끝나게.
 import { h, topbar } from '../ui.js';
 import { back } from '../router.js';
-import { pref, setPref } from '../prefs.js';
+import { pref, setPref, ACCENTS, applyAccent, applyTheme, isDark } from '../prefs.js';
 
-function choice(name, options) {
+function choice(name, options, onPick) {
   const box = h('div', { class: 'choices', role: 'radiogroup' });
   const draw = () => box.replaceChildren(...options.map((o) => h('button', {
     class: 'choice' + (pref(name) === o.value ? ' on' : ''),
     role: 'radio', 'aria-checked': pref(name) === o.value,
-    onclick: () => { setPref(name, o.value); draw(); },
+    onclick: () => { setPref(name, o.value); onPick?.(o.value); draw(); },
   }, h('span', { class: 'choice-sample' }, o.sample), h('span', { class: 'choice-label' }, o.label))));
   draw();
   return box;
 }
+
+// 포인트 색: 버튼, 강조 표시, 안내에 쓰이는 색
+function accentPicker() {
+  const box = h('div', { class: 'accent-row', role: 'radiogroup', 'aria-label': '포인트 색' });
+  const draw = () => box.replaceChildren(...ACCENTS.map(([key, label, l, , d]) => h('button', {
+    class: 'accent-opt' + (pref('accent') === key ? ' on' : ''),
+    role: 'radio', 'aria-checked': pref('accent') === key,
+    onclick: () => { setPref('accent', key); applyAccent(key); draw(); },
+  }, h('span', { class: 'swatch', style: `--c:${isDark() ? d : l}` }), h('span', { class: 'accent-label' }, label))));
+  draw();
+  redrawAccents = draw;
+  return box;
+}
+let redrawAccents = () => {};
 
 export function prefsScreen() {
   return h('div', { class: 'screen' },
     topbar({ onBack: () => back('/'), title: '환경 설정' }),
     h('main', { class: 'content entry' },
       h('section', { class: 'entry-sec' },
+        h('h3', null, '화면 모드'),
+        choice('theme', [
+          { value: 'system', label: '휴대폰 설정 따르기', sample: '자동' },
+          { value: 'light', label: '늘 밝게', sample: '밝게' },
+          { value: 'dark', label: '늘 어둡게', sample: '어둡게' },
+        ], (v) => { applyTheme(v); redrawAccents(); })),
+      h('section', { class: 'entry-sec' },
+        h('h3', null, '포인트 색'),
+        accentPicker(),
+        h('p', { class: 'muted small' }, '버튼, 강조 표시, 바뀐 설정의 점 같은 곳에 쓰이는 색이에요. 캐릭터 형광펜 색은 따로예요.')),
+      h('section', { class: 'entry-sec' },
         h('h3', null, '따옴표 모양'),
         choice('quotes', [
           { value: 'curly', label: '둥근 따옴표', sample: '“가자.” ‘왜?’' },
           { value: 'straight', label: '곧은 따옴표', sample: '"가자." \'왜?\'' },
         ]),
-        h('p', { class: 'muted small' }, '줄을 밀어 따옴표를 붙일 때, 그리고 텍스트로 내보낼 때 이 모양으로 맞춰요.'))));
+        h('p', { class: 'muted small' }, '대사 줄 여백에 보이는 모양이고, 텍스트로 내보내거나 복사할 때도 이 모양으로 붙어요.'))));
 }

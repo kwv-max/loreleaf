@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#161614" media="(prefers-color-scheme: dark)">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="갈피">
+  <script>
+    // 직접 고른 화면 모드는 첫 화면이 그려지기 전에 (깜빡임 없이)
+    try { const t = JSON.parse(localStorage.getItem('ll:prefs') || '{}').theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <meta name="description" content="갈피 — 모바일 소설 쓰기와 설정 관리">
   <title>갈피</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>

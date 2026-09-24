@@ -1,4 +1,5 @@
 // 데이터 저장소: 전부 메모리에 올려두고, 바뀐 레코드만 IndexedDB에 기록한다.
+import { migrateChapter } from './quotes.js';
 const STORES = ['works', 'chapters', 'entries', 'folders'];
 export const db = { works: new Map(), chapters: new Map(), entries: new Map(), folders: new Map() };
 let idb = null;
@@ -11,7 +12,53 @@ export const TYPES = [
   { key: 'world', label: '세계관', icon: 'globe', fields: ['요약', '규칙', '예외'] },
   { key: 'memo', label: '기타 메모', icon: 'note', fields: [] },
 ];
-export const typeOf = (key) => TYPES.find((t) => t.key === key);
+// 작품마다 분류를 더 만들 수 있고, 아이콘도 바꿀 수 있다.
+//   work.types = [{ key, label, icon, fields: [] }]  직접 만든 분류
+//   work.icons = { 분류 key: 아이콘 }               기본 분류의 아이콘 바꾸기
+//   entry.icon                                    항목 하나만 다른 아이콘
+export function typeOf(key, wid) {
+  let t = TYPES.find((x) => x.key === key);
+  if (!t) {
+    for (const w of db.works.values()) {
+      t = w.types?.find((x) => x.key === key);
+      if (t) { wid ??= w.id; break; }
+    }
+  }
+  if (!t) return { key, label: '분류 없음', icon: 'note', fields: [] };
+  const ic = wid && db.works.get(wid)?.icons?.[key];
+  return ic ? { ...t, icon: ic } : t;
+}
+// 작품의 분류 목록: 기본 분류, 직접 만든 분류, 기타 메모 순
+export function typesOf(wid) {
+  const w = db.works.get(wid);
+  const base = TYPES.map((t) => typeOf(t.key, wid));
+  return [...base.slice(0, -1), ...(w?.types || []), base[base.length - 1]];
+}
+export const isCustomType = (key) => !TYPES.some((t) => t.key === key);
+export const iconOf = (e) => e.icon || typeOf(e.type, e.workId).icon;
+
+export function createType(wid, label, icon) {
+  const w = db.works.get(wid);
+  const t = { key: 't' + uid(), label, icon: icon || 'note', fields: [] };
+  (w.types ||= []).push(t);
+  put('works', w);
+  return t;
+}
+export function setTypeIcon(wid, key, icon) {
+  const w = db.works.get(wid);
+  const own = w.types?.find((x) => x.key === key);
+  if (own) own.icon = icon;
+  else (w.icons ||= {})[key] = icon;
+  put('works', w);
+}
+// 직접 만든 분류를 지우면 안의 설정은 '기타 메모'로 옮긴다 (잃지 않는다)
+export function deleteType(wid, key) {
+  const w = db.works.get(wid);
+  for (const e of db.entries.values()) if (e.workId === wid && e.type === key) { e.type = 'memo'; e.folderId = null; put('entries', e); }
+  for (const f of [...db.folders.values()]) if (f.workId === wid && f.type === key) del('folders', f.id);
+  w.types = (w.types || []).filter((x) => x.key !== key);
+  put('works', w);
+}
 
 export const COLORS = ['#f2b53a', '#f58fb0', '#6fb7f2', '#7cc98a', '#b99bf5', '#ff9f68', '#4fc9bd', '#c9a27c'];
 
@@ -38,6 +85,7 @@ export async function initStore() {
     idb = null;
   }
   recoverDraft();
+  migrateAll();
   return !!idb;
 }
 
@@ -60,8 +108,8 @@ export function del(store, id) {
 
 // 편집 중인 본문은 localStorage에도 즉시 남겨서, IndexedDB 기록 전에 앱이 꺼져도 복구한다.
 const DRAFT = 'll:draft';
-export function stashDraft(id, text) {
-  try { localStorage.setItem(DRAFT, JSON.stringify({ id, text, t: Date.now() })); } catch {}
+export function stashDraft(id, text, quotes, notes) {
+  try { localStorage.setItem(DRAFT, JSON.stringify({ id, text, quotes, notes, t: Date.now() })); } catch {}
 }
 export function clearDraft(id) {
   try {
@@ -74,11 +122,18 @@ function recoverDraft() {
     const d = JSON.parse(localStorage.getItem(DRAFT) || 'null');
     localStorage.removeItem(DRAFT);
     const c = d && db.chapters.get(d.id);
-    if (c && d.t > (c.updatedAt || 0) && d.text !== c.text) {
+    if (c && d.t > (c.updatedAt || 0)) {
       c.text = d.text;
+      if (d.quotes) c.quotes = d.quotes;
+      if (d.notes) c.notes = d.notes;
       put('chapters', c);
     }
   } catch {}
+}
+
+// 따옴표를 글자로 쓰던 예전 원고를 대사 줄 표시로 옮긴다 (한 번만).
+export function migrateAll() {
+  for (const c of db.chapters.values()) if (migrateChapter(c)) put('chapters', c, { touch: false });
 }
 
 // ---- 조회 ----
@@ -112,7 +167,7 @@ export function createWork(title) {
 export function createChapter(wid) {
   const list = chaptersOf(wid);
   const order = list.length ? Math.max(...list.map((c) => c.order)) + 1 : 1;
-  const c = { id: uid(), workId: wid, title: `${list.length + 1}화`, order, text: '', createdAt: Date.now() };
+  const c = { id: uid(), workId: wid, title: `${list.length + 1}화`, order, text: '', quotes: {}, createdAt: Date.now() };
   put('chapters', c);
   return c;
 }
@@ -163,4 +218,5 @@ export function exportAll() {
 export async function importAll(o) {
   if (!o || o.app !== 'loreleaf') throw new Error('갈피 백업 파일이 아니에요.');
   for (const s of STORES) for (const x of o[s] || []) await put(s, x, { touch: false });
+  migrateAll();
 }

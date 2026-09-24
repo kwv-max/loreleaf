@@ -1,14 +1,18 @@
 // 설정 자료 목록 (종류별, 폴더 안). 폴더는 필요한 사람만 쓰면 된다.
-import { h, icon, iconBtn, topbar, ask, actions, confirmBox, toast, hintOnce, josa } from '../ui.js';
-import { db, typeOf, entriesOf, foldersOf, createEntry, createFolder, deleteFolder, put } from '../store.js';
+import { h, icon, iconBtn, topbar, ask, actions, confirmBox, toast, hintOnce, josa, pickIcon } from '../ui.js';
+import {
+  db, typeOf, iconOf, isCustomType, setTypeIcon, deleteType, entriesOf, foldersOf, createEntry, createFolder, deleteFolder, put,
+} from '../store.js';
 import { go, back } from '../router.js';
 import { emit } from '../guide.js';
+import { orderOf, valueAt, viewAtFor, setViewAt } from '../timeline.js';
 
 export function categoryScreen({ wid, type, fid }) {
   const w = db.works.get(wid);
-  const t = typeOf(type);
+  const custom = isCustomType(type);
+  const t = typeOf(type, wid);
   const folder = fid ? db.folders.get(fid) : null;
-  if (!w || !t || (fid && !folder)) { go(w ? `/w/${wid}/lore` : '/', { replace: true }); return null; }
+  if (!w || (custom && !w.types?.some((x) => x.key === type)) || (fid && !folder)) { go(w ? `/w/${wid}/lore` : '/', { replace: true }); return null; }
   const here = folder ? folder.id : null;
   const upTo = folder?.parentId ? `/w/${wid}/lore/${type}/${folder.parentId}` : folder ? `/w/${wid}/lore/${type}` : `/w/${wid}/lore`;
   const refresh = () => go(location.hash.slice(1), { replace: true });
@@ -36,7 +40,7 @@ export function categoryScreen({ wid, type, fid }) {
         iconBtn('more', '폴더 메뉴', () => folderMenu(f, refresh)))),
       entries.map((e) => h('div', { class: 'row' },
         h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/e/${e.id}`) },
-          e.color ? h('span', { class: 'dot lg', style: `--c:${e.color}` }) : icon(t.icon, 'type-ic'),
+          e.color ? h('span', { class: 'dot lg', style: `--c:${e.color}` }) : icon(iconOf(e), 'type-ic'),
           h('div', null,
             h('div', { class: 'row-title' }, e.name),
             summary(e) ? h('div', { class: 'row-sub' }, summary(e)) : null)),
@@ -52,18 +56,61 @@ export function categoryScreen({ wid, type, fid }) {
     topbar({
       onBack: () => back(upTo),
       title: folder ? folder.name : t.label,
-      right: [iconBtn('plus', '추가', () => actions([
-        { label: `${noun} 추가`, run: addEntry },
-        { label: '폴더 만들기', run: addFolder },
-      ]))],
+      right: [
+        iconBtn('plus', '추가', () => actions([
+          { label: `${noun} 추가`, run: addEntry },
+          { label: '폴더 만들기', run: addFolder },
+        ])),
+        folder ? null : iconBtn('more', '분류 메뉴', () => typeMenu(w, t, custom, refresh)),
+      ],
     }),
-    h('main', { class: 'content' }, body));
+    h('main', { class: 'content' }, atBanner(wid), body));
+}
+
+// 분류 메뉴: 아이콘 바꾸기, (직접 만든 분류는) 이름 바꾸기·지우기
+function typeMenu(w, t, custom, refresh) {
+  const changeIcon = async () => {
+    const ic = await pickIcon(t.icon, { title: `${t.label} 아이콘 바꾸기` });
+    if (ic) { setTypeIcon(w.id, t.key, ic); refresh(); }
+  };
+  if (!custom) { changeIcon(); return; } // 기본 분류는 바꿀 게 아이콘뿐이라 바로 고르기
+  actions([
+    { label: '아이콘 바꾸기', run: changeIcon },
+    custom && { label: '이름 바꾸기', run: async () => {
+      const n = await ask('분류 이름', { value: t.label });
+      if (n) { w.types.find((x) => x.key === t.key).label = n; put('works', w); refresh(); }
+    } },
+    custom && { label: '분류 지우기', danger: true, run: async () => {
+      const n = entriesOf(w.id, t.key).length;
+      const msg = n ? `안에 있는 설정 ${n}개는 ‘기타 메모’로 옮겨 둘게요.` : '빈 분류를 지워요.';
+      if (await confirmBox(msg, { ok: '분류 지우기', danger: true })) {
+        deleteType(w.id, t.key);
+        toast(`‘${t.label}’ 분류를 지웠어요.`);
+        go(`/w/${w.id}/lore`, { replace: true });
+      }
+    } },
+  ].filter(Boolean), t.label);
+}
+
+// 글을 쓰다 '설정 보기'로 왔으면 그 화 시점이라는 걸 알려 주고, 풀 수 있게
+export function atBanner(wid) {
+  const cid = viewAtFor(wid);
+  if (!cid) return null;
+  return h('div', { class: 'at-banner' },
+    h('span', null, `${db.chapters.get(cid).title} 시점으로 보는 중`),
+    h('button', { class: 'link-btn', onclick: () => { setViewAt(null); go(location.hash.slice(1), { replace: true }); } }, '최신으로'));
 }
 
 function summary(e) {
   if (e.aliases?.length) return e.aliases.join(', ');
-  const f = e.fields.find((f) => f.value.trim());
-  return f ? `${f.label} ${f.value}` : (e.note || '').slice(0, 50);
+  const order = orderOf(e.workId);
+  const cid = viewAtFor(e.workId);
+  const at = cid ? order.get(cid) : Infinity;
+  for (const f of e.fields) {
+    const v = valueAt(f, at, order).value;
+    if (v.trim()) return `${f.label} ${v}`;
+  }
+  return (e.note || '').slice(0, 50);
 }
 
 function countIn(f) {

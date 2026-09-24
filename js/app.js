@@ -1,6 +1,6 @@
 import { h, icon, toast } from './ui.js';
 import { initStore, db } from './store.js';
-import { route, render, onRender, go } from './router.js';
+import { route, render, onRender, go, seedHistory, path } from './router.js';
 import { decorate, startGuide } from './guide.js';
 import { insertSample } from './sample.js';
 import { libraryScreen } from './screens/library.js';
@@ -10,12 +10,14 @@ import { entryScreen } from './screens/entry.js';
 import { editorScreen } from './screens/editor.js';
 import { helpScreen } from './screens/help.js';
 import { prefsScreen } from './screens/prefs.js';
+import { searchScreen } from './screens/search.js';
 
 route('/', libraryScreen);
 route('/help', helpScreen);
 route('/prefs', prefsScreen);
 route('/w/:wid', manuscriptScreen);
 route('/w/:wid/lore', loreScreen);
+route('/w/:wid/search', searchScreen);
 route('/w/:wid/lore/:type', categoryScreen);
 route('/w/:wid/lore/:type/:fid', categoryScreen);
 route('/w/:wid/c/:cid', editorScreen);
@@ -49,12 +51,11 @@ async function boot() {
   try { first = !localStorage.getItem('ll:welcomed'); } catch {}
   if (first && !db.works.size) insertSample();
 
-  // 앱을 다시 열면 마지막으로 보던 곳으로.
-  if (!location.hash) {
-    let last = null;
-    try { last = localStorage.getItem(LAST); } catch {}
-    if (last && last !== '/') history.replaceState(null, '', '#' + last);
-  }
+  // 앱을 다시 열면 마지막으로 보던 곳으로. 뒤로 가기가 앱을 끄지 않고 상위 화면으로 가도록 길도 깔아 둔다.
+  // 주소에 화면이 이미 있으면(새로고침 등) 그 화면, 없으면 마지막으로 보던 화면.
+  let target = location.hash ? path() : null;
+  if (!target) { try { target = localStorage.getItem(LAST); } catch {} }
+  if (target && target !== '/') seedHistory(target);
   render();
   if (first) welcome();
   if (!ok) toast('이 브라우저에서는 저장이 되지 않을 수 있어요. (사생활 보호 모드?)', { duration: 6000 });
