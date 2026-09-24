@@ -1,5 +1,6 @@
 // 환경 설정. 취향이 갈리는 것만 여기에. 항목이 늘어도 한 화면에서 끝나게.
-import { h, topbar } from '../ui.js';
+import { h, topbar, toast } from '../ui.js';
+import { versionReady, checkUpdate, showUpdate } from '../update.js';
 import { back } from '../router.js';
 import { pref, setPref, ACCENTS, applyAccent, applyTheme, isDark } from '../prefs.js';
 
@@ -28,6 +29,12 @@ function accentPicker() {
 }
 let redrawAccents = () => {};
 
+function versionLabel() {
+  const el = h('span', null, '갈피');
+  versionReady().then((v) => { if (v) el.textContent = `갈피 ${v}`; });
+  return el;
+}
+
 export function prefsScreen() {
   return h('div', { class: 'screen' },
     topbar({ onBack: () => back('/'), title: '환경 설정' }),
@@ -50,5 +57,19 @@ export function prefsScreen() {
           { value: 'straight', label: '곧은 따옴표', sample: '"가자." \'왜?\'' },
           { value: 'corner', label: '낫표', sample: '「가자.」『왜?』' },
         ]),
-        h('p', { class: 'muted small' }, '대사 줄 여백에 보이는 모양이고, 텍스트로 내보내거나 복사할 때도 이 모양으로 붙어요.'))));
+        h('p', { class: 'muted small' }, '대사 줄 여백에 보이는 모양이고, 텍스트로 내보내거나 복사할 때도 이 모양으로 붙어요.')),
+      h('section', { class: 'entry-sec' },
+        h('h3', null, '앱 정보'),
+        h('div', { class: 'app-info' },
+          versionLabel(),
+          h('button', {
+            class: 'link-btn',
+            onclick: async (ev) => {
+              const b = ev.currentTarget;
+              b.disabled = true;
+              const v = await checkUpdate();
+              b.disabled = false;
+              if (v) showUpdate(); else toast('최신 버전이에요.');
+            },
+          }, '업데이트 확인')))));
 }

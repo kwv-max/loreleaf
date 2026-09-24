@@ -5,6 +5,7 @@ import { go } from '../router.js';
 import { emit } from '../guide.js';
 import { manuscriptText, lengthOf } from '../quotes.js';
 import { saveBackup, lastBackup, canOverwrite } from '../backup.js';
+import { newVersion, showUpdate } from '../update.js';
 
 export async function newWork() {
   const title = await ask('새 작품', { placeholder: '작품 제목', ok: '만들기' });
@@ -104,6 +105,7 @@ export function libraryScreen() {
   return h('div', { class: 'screen' },
     topbar({ title: '갈피', right: [iconBtn('help', '도움말', () => go('/help')), iconBtn('more', '메뉴', appMenu)] }),
     h('main', { class: 'content' },
+      updateTip(),
       iosInstallTip(),
       resume,
       works.length ? h('h2', { class: 'section' }, '작품') : null,
@@ -124,4 +126,15 @@ function iosInstallTip() {
       h('p', null, '아래 공유 버튼 → ‘홈 화면에 추가’를 누르면 앱처럼 열려요. 사파리에서만 쓰면, 오래 안 열었을 때 글이 지워질 수 있어요.')),
     h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: () => { try { localStorage.setItem('ll:ios-tip', '1'); } catch {} el.remove(); } }, icon('close')));
   return el;
+}
+
+// 새 버전이 나왔으면 목록 맨 위에 조용히
+function updateTip() {
+  const v = newVersion();
+  if (!v) return null;
+  return h('button', { class: 'update-tip', onclick: showUpdate },
+    h('div', null,
+      h('b', null, '새 버전이 있어요'),
+      v.notes?.[0] ? h('p', null, v.notes[0] + (v.notes.length > 1 ? ` 외 ${v.notes.length - 1}가지` : '')) : null),
+    h('span', { class: 'update-go' }, '업데이트'));
 }

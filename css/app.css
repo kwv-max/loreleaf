@@ -639,3 +639,14 @@ mark.multi {
 .ios-tip b { color: var(--accent); }
 .ios-tip p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .ios-tip > div { flex: 1; }
+
+/* 업데이트 */
+.update-tip { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); text-align: left; }
+.update-tip > div { flex: 1; min-width: 0; }
+.update-tip b { color: var(--accent); }
+.update-tip p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.update-go { flex: none; padding: 7px 12px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 700; }
+.update-notes { margin: 0 0 16px; padding-left: 20px; line-height: 1.6; color: var(--ink-2); }
+.update-notes li + li { margin-top: 4px; }
+.update-sheet .center { text-align: center; margin: 10px 0 0; }
+.app-info { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-variant-numeric: tabular-nums; }

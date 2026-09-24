@@ -11,6 +11,7 @@ import { editorScreen } from './screens/editor.js';
 import { helpScreen } from './screens/help.js';
 import { prefsScreen } from './screens/prefs.js';
 import { searchScreen } from './screens/search.js';
+import { initUpdates, onUpdate } from './update.js';
 
 route('/', libraryScreen);
 route('/help', helpScreen);
@@ -56,6 +57,9 @@ async function boot() {
   let target = location.hash ? path() : null;
   if (!target) { try { target = localStorage.getItem(LAST); } catch {} }
   if (target && target !== '/') seedHistory(target);
+  // 새 버전 확인. 작품 목록을 보고 있으면 안내가 바로 보이게 다시 그린다.
+  initUpdates();
+  onUpdate(() => { if (path() === '/') render(); });
   render();
   if (first) welcome();
   if (!ok) toast('이 브라우저에서는 저장이 되지 않을 수 있어요. (사생활 보호 모드?)', { duration: 6000 });
