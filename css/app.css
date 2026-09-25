@@ -886,3 +886,14 @@ mark.multi {
 .ask-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 11px 12px; text-align: left; }
 .ask-row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ask-none { padding: 12px 4px; }
+/* 제안 카드 */
+.ask-props { display: flex; flex-direction: column; gap: 8px; }
+.prop { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 14px; line-height: 1.55; }
+.prop.done { border-color: var(--accent); }
+.prop.gone { padding: 6px 12px; border-style: dashed; }
+.prop-head { font-size: 14px; }
+.prop-line { overflow-wrap: anywhere; }
+.prop-reason { margin-top: 2px; }
+.prop-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.prop-btn { height: 38px; padding: 0 16px; font-size: 14px; border-radius: 12px; }
+.prop-done { margin-right: auto; color: var(--accent); font-weight: 600; }

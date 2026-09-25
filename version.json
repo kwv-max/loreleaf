@@ -1,15 +1,12 @@
 {
-  "version": "2026.09.26.4",
+  "version": "2026.09.26.5",
   "notes": [
-    "AI 도우미 대화가 이 기기에 저장돼요. 창 위쪽 목록에서 다시 열고, 이름을 바꾸거나 지울 수 있어요.",
-    "창 아래에서 모델과 ‘생각하기’(짧게·보통·깊게)를 바로 고를 수 있어요."
+    "AI 도우미가 설정 항목 추가나 수정을 제안할 수 있어요. 제안은 카드로 나오고, ‘추가’나 ‘반영’을 눌러야 저장돼요. 누른 뒤에도 되돌릴 수 있어요."
   ],
   "notes_en": [
-    "AI assistant chats are now saved on this device. Reopen, rename or delete them from the list at the top of the window.",
-    "Pick the model and how much it thinks (less, normal, deeply) right at the bottom of the window."
+    "The AI assistant can now suggest new world notes or changes. Suggestions appear as cards and are saved only when you tap “Add” or “Apply” — and you can still undo."
   ],
   "notes_ja": [
-    "AIアシスタントの会話がこの端末に保存されるようになりました。上の一覧から開き直したり、名前を変えたり削除したりできます。",
-    "画面下でモデルと「思考」（少なめ・普通・深め）をすぐに選べます。"
+    "AIアシスタントが設定項目の追加や修正を提案できるようになりました。提案はカードで表示され、「追加」や「反映」を押したときだけ保存されます。押したあとも元に戻せます。"
   ]
 }

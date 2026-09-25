@@ -30,7 +30,7 @@ export async function chatsOf(wid) {
 // 저장할 때는 진행 중 표시를 빼고, 순수한 값만 (IndexedDB는 함수·DOM을 못 담는다)
 export function saveChat(chat) {
   if (!chat.items.length) return Promise.resolve(null);
-  const items = chat.items.filter((it) => it.a != null || it.error).map(({ q, a, usage, error }) => ({ q, a, usage, error }));
+  const items = chat.items.filter((it) => it.a != null || it.error).map(({ q, a, usage, error, proposals }) => ({ q, a, usage, error, proposals }));
   const copy = JSON.parse(JSON.stringify({ ...chat, items }));
   return run('readwrite', (s) => s.put(copy));
 }

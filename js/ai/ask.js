@@ -3,7 +3,8 @@
 // 창 아래에서 모델과 생각하기를 고른다. 이미 주고받은 대화는 회사를 바꿀 수 없다 (회사마다 기록 모양이 달라서).
 import { h, sheet, confirmBox, autogrow, num, icon, iconBtn, dropdown, actions, ask as askText, toast, relTime } from '../ui.js';
 import { t } from '../i18n.js';
-import { chaptersOf } from '../store.js';
+import { db, chaptersOf, createEntry, put, del, uid } from '../store.js';
+import { setChange } from '../timeline.js';
 import { go } from '../router.js';
 import { setJump } from '../screens/editor.js';
 import { aiConfig, setAi, setAiFor, aiReady } from './config.js';
@@ -97,6 +98,7 @@ export function openAsk(wid, cid = null) {
       it.a != null ? h('div', { class: 'ask-a' }, renderAnswer(it.a || t('ask.empty'), wid, openCite)) : null,
       it.step ? h('div', { class: 'ask-step muted small' }, h('span', { class: 'ask-dot' }), it.step) : null,
       it.error ? h('div', { class: 'ask-error small' }, it.error) : null,
+      (it.proposals || []).length ? h('div', { class: 'ask-props' }, it.proposals.map((p) => proposalCard(p))) : null,
       it.usage ? h('div', { class: 'ask-usage muted small' }, t('ask.usage', { in: num(it.usage.in), out: num(it.usage.out) })) : null)));
     if (!chat.items.length) {
       log.append(h('div', { class: 'ask-empty' },
@@ -141,6 +143,65 @@ export function openAsk(wid, cid = null) {
     ], x.title || t('ask.title'));
   }
 
+  // ---- 제안 카드: '추가'·'반영'을 눌러야 저장된다. 누른 뒤에는 되돌리기 알림 ----
+  const chName = (n) => chaptersOf(wid)[n - 1]?.title || t('ask.citeCh', { n });
+  function proposalCard(p) {
+    const done = p.status === 'done', gone = p.status === 'dismissed';
+    const body = p.kind === 'entry'
+      ? [h('div', { class: 'prop-head' }, t('ask.prop.newEntry', { type: p.typeLabel }), ' · ', h('b', null, p.name)),
+        p.aliases.length ? h('div', { class: 'prop-line' }, h('span', { class: 'muted' }, t('ask.prop.aliases') + ' '), p.aliases.join(', ')) : null,
+        ...p.fields.map(([l, v]) => h('div', { class: 'prop-line' }, h('span', { class: 'muted' }, l + ' '), v)),
+        p.note ? h('div', { class: 'prop-line' }, p.note) : null]
+      : [h('div', { class: 'prop-head' }, h('b', null, t('ask.prop.change', { name: p.name, field: p.field })), ' · ', h('span', { class: 'muted' }, p.from ? t('ask.prop.from', { n: p.from }) : t('ask.prop.base'))),
+        h('div', { class: 'prop-line' }, h('s', { class: 'muted' }, p.old || t('ask.prop.empty')), ' → ', h('b', null, p.value || t('ask.prop.empty')))];
+    const reason = p.reason ? h('div', { class: 'prop-reason muted small' }, inline(p.reason, wid, openCite)) : null;
+    const foot = done
+      ? h('div', { class: 'prop-foot' }, h('span', { class: 'prop-done' }, '✓ ', p.kind === 'entry' ? t('ask.prop.added') : t('ask.prop.applied')),
+        h('button', { class: 'link-btn small', onclick: () => { const e = db.entries.get(p.entryId); if (e) { sh.close(); setTimeout(() => go(`/w/${wid}/e/${e.id}`), 200); } } }, t('ask.prop.open')))
+      : gone ? null
+        : h('div', { class: 'prop-foot' },
+          h('button', { class: 'btn ghost inline prop-btn', onclick: () => { p.status = 'dismissed'; saveChat(chat); drawChat(); } }, t('ask.prop.dismiss')),
+          h('button', { class: 'btn primary inline prop-btn', onclick: () => accept(p) }, p.kind === 'entry' ? t('ask.prop.add') : t('ask.prop.apply')));
+    if (gone) return h('div', { class: 'prop gone muted small' }, p.kind === 'entry' ? p.name : `${p.name} · ${p.field}`, ' — ', t('ask.prop.dismissed'));
+    return h('div', { class: 'prop' + (done ? ' done' : '') }, body, reason, foot);
+  }
+
+  function accept(p) {
+    let undo;
+    if (p.kind === 'entry') {
+      if ([...db.entries.values()].some((e) => e.workId === wid && (e.name === p.name))) { toast(t('ask.prop.exists')); return; }
+      const e = createEntry(wid, p.type, { name: p.name });
+      e.aliases = p.aliases.slice();
+      e.fields = p.fields.map(([label, value]) => ({ id: uid(), label, value }));
+      e.note = p.note || '';
+      put('entries', e);
+      p.entryId = e.id;
+      undo = () => del('entries', e.id);
+    } else {
+      const e = db.entries.get(p.entryId);
+      if (!e) { toast(t('ask.prop.gone')); return; }
+      const before = JSON.parse(JSON.stringify(e));
+      let f = e.fields.find((x) => x.label.trim().toLowerCase() === p.field.trim().toLowerCase());
+      if (!f) { f = { id: uid(), label: p.field, value: '' }; e.fields.push(f); }
+      if (p.from) {
+        const ch = chaptersOf(wid)[p.from - 1];
+        if (!ch) { toast(t('ask.prop.noChapter')); return; }
+        setChange(e, f, ch.id, p.value); // 저장까지 한다
+      } else {
+        f.value = p.value;
+        put('entries', e);
+      }
+      undo = () => { Object.keys(e).forEach((k) => delete e[k]); Object.assign(e, before); put('entries', e); };
+    }
+    p.status = 'done';
+    saveChat(chat);
+    drawChat();
+    toast(p.kind === 'entry' ? t('ask.prop.added') : t('ask.prop.applied'), {
+      action: t('common.undo'),
+      onAction: () => { undo(); p.status = null; saveChat(chat); if (view === 'chat') drawChat(); toast(t('ask.prop.undone')); },
+    });
+  }
+
   function draw() {
     drawHead();
     bar.hidden = foot.hidden = view === 'list';
@@ -171,6 +232,7 @@ export function openAsk(wid, cid = null) {
       });
       it.a = res.text;
       it.usage = res.usage;
+      it.proposals = (res.proposals || []).map((p) => ({ ...p, status: null }));
     } catch (e) {
       const kind = e instanceof AiError ? e.kind : 'other';
       it.error = kind === 'aborted' ? t('ask.stopped') : kind === 'key' ? t('ai.badKey') : kind === 'network' ? t('ai.network')
