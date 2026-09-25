@@ -1,15 +1,12 @@
 {
-  "version": "2026.09.26.6",
+  "version": "2026.09.26.7",
   "notes": [
-    "AI 도우미가 처음부터 화 목록과 설정 이름을 알고 시작해서 답이 더 빨라졌어요.",
-    "‘설정과 어긋난 곳’ 버튼이 생겼어요. 아이템·장소까지 모든 설정을 한 번에 읽고 원고와 비교해요."
+    "AI 도우미가 제안 카드를 만들지 않고 ‘보냈다’고만 말하면, 앱이 알아채고 실제로 카드를 만들게 다시 시켜요."
   ],
   "notes_en": [
-    "The AI assistant now starts out knowing your chapter list and note names, so answers come faster.",
-    "New “Where it contradicts my notes” button: it reads every note, items and places included, and compares them with the text."
+    "If the AI assistant says it left a suggestion without actually making a card, the app notices and has it create the card."
   ],
   "notes_ja": [
-    "AIアシスタントが最初から話の一覧と設定の名前を知った状態で始めるので、答えが速くなりました。",
-    "「設定と食い違う箇所」ボタンが加わりました。アイテムや場所も含めすべての設定を読み、本文と比べます。"
+    "AIアシスタントがカードを作らずに「提案した」とだけ言ったときは、アプリが気づいて実際にカードを作り直させます。"
   ]
 }
