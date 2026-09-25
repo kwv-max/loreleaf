@@ -106,6 +106,7 @@ export function openAsk(wid, cid = null) {
         h('div', { class: 'ask-chips' },
           chip(t('ask.chip.recap'), t('ask.q.recap')),
           cid ? chip(t('ask.chip.here'), t('ask.q.here')) : null,
+          chip(t('ask.chip.check'), cid ? t('ask.q.checkHere') : t('ask.q.check')),
           chip(t('ask.chip.missing'), t('ask.q.missing')))));
     }
     sendBtn.replaceChildren(icon(running ? 'close' : 'up'));

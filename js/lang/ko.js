@@ -608,4 +608,10 @@ export default {
   'ask.prop.exists': '같은 이름이 이미 있어요.',
   'ask.prop.noChapter': '그 화가 없어져서 반영하지 못했어요.',
   'ask.prop.undone': '되돌렸어요.',
+
+  // ---- AI 도우미: 설정 점검 ----
+  'ask.step.allEntries': '설정 전체 읽는 중…',
+  'ask.chip.check': '설정과 어긋난 곳',
+  'ask.q.checkHere': '이 화 본문을 설정(인물·장소·아이템 등 모든 항목, 이 화 시점 값)과 하나씩 비교해서 어긋난 곳을 찾아 줘.',
+  'ask.q.check': '원고를 설정(인물·장소·아이템 등 모든 항목)과 화마다 비교해서 어긋난 곳을 찾아 줘.',
 };

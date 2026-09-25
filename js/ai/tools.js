@@ -8,6 +8,7 @@ import { orderOf, valueAt, historyOf } from '../timeline.js';
 
 const MAX_LINES = 300;
 const MAX_HITS = 40;
+const MAX_ALL = 40000; // read_all_entries가 돌려주는 최대 글자 수
 
 // 회사마다 스키마 지원 범위가 달라서, 가장 단순한 모양(문자열·정수, 필수 목록)만 쓴다
 export const TOOLS = [
@@ -45,6 +46,11 @@ export const TOOLS = [
       as_of_chapter: { type: 'integer', description: 'Optional chapter number to view values as of that chapter.' },
     },
     required: ['name'],
+  },
+  {
+    name: 'read_all_entries',
+    description: 'Read every world note in full at once (all categories: characters, places, items, organizations, and so on). Use this before checking the manuscript for contradictions, so nothing is missed.',
+    params: { as_of_chapter: { type: 'integer', description: 'Optional chapter number to view values as of that chapter.' } },
   },
   {
     name: 'propose_entry',
@@ -86,6 +92,39 @@ export function runTool(wid, name, input = {}, ctx = {}) {
   };
   const label = (i) => `${i + 1}. ${chs[i].title}`;
   const entries = [...db.entries.values()].filter((e) => e.workId === wid && e.name.trim());
+  const order = orderOf(wid);
+  const chNo = (id) => (order.has(id) ? order.get(id) + 1 : '?');
+  // 설정 한 장을 글로. asOf(화 번호)가 있으면 그 시점 값, 바뀐 기록도 함께
+  const describe = (e, asOf = 0, header = true) => {
+    const at = asOf ? asOf - 1 : Infinity;
+    const out = [`${e.name} — ${typeOf(e.type, wid).label}`];
+    if (e.aliases?.length) out.push(`Aliases: ${e.aliases.join(', ')}`);
+    if (asOf && header) out.push(`Values as of chapter ${asOf}:`);
+    for (const f of e.fields) {
+      const v = valueAt(f, at, order).value;
+      out.push(`- ${f.label || '(no label)'}: ${v || '(empty)'}`);
+      const hist = historyOf(f, order);
+      if (hist.length > 1) out.push(`  changes: ${hist.map((x) => `${x.idx < 0 ? 'start' : `from ch.${x.idx + 1}`} → ${x.value || '(empty)'}`).join('; ')}`);
+    }
+    if (e.note?.trim()) out.push(`Note: ${e.note.trim()}`);
+    const rels = relationsOf(e.id);
+    if (rels.length) {
+      out.push('Relationships:');
+      for (const r of rels) {
+        const other = db.entries.get(otherOf(r, e.id));
+        if (!other) continue;
+        const [mine, theirs] = sidesFor(r, e.id);
+        const side = (x) => {
+          const v = valueAt(x, at, order).value;
+          const ch = (x.changes || []).filter((c) => order.has(c.chapterId)).map((c) => `from ch.${chNo(c.chapterId)}: ${c.value}`);
+          return `${v || '(empty)'}${ch.length ? ` [${ch.join('; ')}]` : ''}`;
+        };
+        out.push(`- ${e.name} → ${other.name}: ${side(mine)}`);
+        out.push(`  ${other.name} → ${e.name}: ${side(theirs)}`);
+      }
+    }
+    return out.join('\n');
+  };
 
   switch (name) {
     case 'list_chapters':
@@ -130,37 +169,20 @@ export function runTool(wid, name, input = {}, ctx = {}) {
       const e = entries.find((x) => x.name === q) || entries.find((x) => (x.aliases || []).includes(q))
         || entries.find((x) => x.name.toLowerCase() === q.toLowerCase());
       if (!e) throw new Error(`No entry named "${q}". Use list_entries to see the names.`);
-      const order = orderOf(wid);
-      const at = input.as_of_chapter ? (input.as_of_chapter | 0) - 1 : Infinity;
       if (input.as_of_chapter) chapterAt(input.as_of_chapter);
-      const chNo = (cid) => (order.has(cid) ? order.get(cid) + 1 : '?');
-      const out = [`${e.name} — ${typeOf(e.type, wid).label}`];
-      if (e.aliases?.length) out.push(`Aliases: ${e.aliases.join(', ')}`);
-      if (input.as_of_chapter) out.push(`Values as of chapter ${input.as_of_chapter | 0}:`);
-      for (const f of e.fields) {
-        const v = valueAt(f, at, order).value;
-        out.push(`- ${f.label || '(no label)'}: ${v || '(empty)'}`);
-        const hist = historyOf(f, order);
-        if (hist.length > 1) out.push(`  changes: ${hist.map((x) => `${x.idx < 0 ? 'start' : `from ch.${x.idx + 1}`} → ${x.value || '(empty)'}`).join('; ')}`);
+      return describe(e, input.as_of_chapter | 0);
+    }
+
+    case 'read_all_entries': {
+      if (input.as_of_chapter) chapterAt(input.as_of_chapter);
+      if (!entries.length) return 'This work has no world notes yet.';
+      let out = input.as_of_chapter ? `All notes, values as of chapter ${input.as_of_chapter | 0}:\n\n` : '';
+      for (const [i, e] of entries.entries()) {
+        const one = describe(e, input.as_of_chapter | 0, false) + '\n\n';
+        if (out.length + one.length > MAX_ALL) { out += `[${entries.length - i} more entries not shown. Use read_entry for them.]`; break; }
+        out += one;
       }
-      if (e.note?.trim()) out.push(`Note: ${e.note.trim()}`);
-      const rels = relationsOf(e.id);
-      if (rels.length) {
-        out.push('Relationships:');
-        for (const r of rels) {
-          const other = db.entries.get(otherOf(r, e.id));
-          if (!other) continue;
-          const [mine, theirs] = sidesFor(r, e.id);
-          const side = (s) => {
-            const v = valueAt(s, at, order).value;
-            const ch = (s.changes || []).filter((c) => order.has(c.chapterId)).map((c) => `from ch.${chNo(c.chapterId)}: ${c.value}`);
-            return `${v || '(empty)'}${ch.length ? ` [${ch.join('; ')}]` : ''}`;
-          };
-          out.push(`- ${e.name} → ${other.name}: ${side(mine)}`);
-          out.push(`  ${other.name} → ${e.name}: ${side(theirs)}`);
-        }
-      }
-      return out.join('\n');
+      return out.trim();
     }
     case 'propose_entry': {
       const props = (ctx.proposals ||= []);
@@ -216,6 +238,7 @@ export function toolLabel(wid, name, input = {}, t) {
     case 'search_text': return t('ask.step.search', { q: input.query || '' });
     case 'list_entries': return t('ask.step.entries');
     case 'read_entry': return t('ask.step.entry', { name: input.name || '' });
+    case 'read_all_entries': return t('ask.step.allEntries');
     case 'propose_entry': case 'propose_entry_change': return t('ask.step.propose');
     default: return name;
   }
