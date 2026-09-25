@@ -91,7 +91,7 @@ export function editorScreen({ wid, cid }) {
     ch.text = ta.value;
     ch.quotes = packFlags(flags);
     ch.notes = notes.map((n) => ({ ...n }));
-    put('chapters', ch).then(() => clearDraft(ch.id));
+    put('chapters', ch).then((ok) => { if (ok) clearDraft(ch.id); }); // 실패하면 임시 저장본을 남겨 둔다
     touchWork(wid);
     noteSave(ch);
     if (Date.now() - lastSnap > 10 * 60 * 1000) snap();
@@ -960,6 +960,7 @@ export function editorScreen({ wid, cid }) {
   const onHide = () => { if (document.visibilityState === 'hidden') { flush(); snap(); } };
   document.addEventListener('visibilitychange', onHide);
   window.addEventListener('pagehide', flush);
+  window.addEventListener('ll-flush', flush); // 저장소를 닫기 직전 (업데이트 등)
 
   el.cleanup = () => {
     flush();
@@ -974,6 +975,7 @@ export function editorScreen({ wid, cid }) {
     document.removeEventListener('visibilitychange', onHide);
     document.removeEventListener('keydown', onKeyFind);
     window.removeEventListener('pagehide', flush);
+    window.removeEventListener('ll-flush', flush);
     window.removeEventListener('touchmove', wake);
     window.removeEventListener('scroll', savePos);
   };

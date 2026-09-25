@@ -86,7 +86,8 @@ export async function initStore({ blocked } = {}) {
       r.onblocked = () => onBlocked?.();
       r.onsuccess = () => {
         // 앞으로 새 버전이 저장소를 바꾸려 하면, 이 창은 비켜 주고 새로고침한다
-        r.result.onversionchange = () => { r.result.close(); location.reload(); };
+        // 닫기 전에 쓰던 글부터 저장한다 (close는 이미 시작된 저장이 끝난 뒤에 닫힌다)
+        r.result.onversionchange = () => { window.dispatchEvent(new Event('ll-flush')); r.result.close(); location.reload(); };
         res(r.result);
       };
       r.onerror = () => rej(r.error);
@@ -101,24 +102,35 @@ export async function initStore({ blocked } = {}) {
   }
   recoverDraft();
   migrateAll();
+  setTimeout(cleanOrphanVersions, 3000);
   return !!idb;
 }
 
+// 저장이 실패하면(저장 공간 부족 등) 알려 줄 곳 (app.js가 정한다)
+let onWriteError = null;
+export function setWriteErrorHandler(fn) { onWriteError = fn; }
+const failed = (e) => { console.warn('저장 실패', e); onWriteError?.(e); };
+
+// 저장. 성공하면 true (실패하면 false와 함께 알림 — 임시 저장본은 지우지 않는다)
 export function put(store, obj, { touch = true } = {}) {
   if (touch) obj.updatedAt = Date.now();
   db[store].set(obj.id, obj);
-  if (!idb) return Promise.resolve();
+  if (!idb) return Promise.resolve(false);
   return new Promise((res) => {
-    const tx = idb.transaction(store, 'readwrite');
-    tx.objectStore(store).put(obj);
-    tx.oncomplete = res;
-    tx.onerror = () => { console.warn(tx.error); res(); };
+    try {
+      const tx = idb.transaction(store, 'readwrite');
+      tx.objectStore(store).put(obj);
+      tx.oncomplete = () => res(true);
+      tx.onerror = () => { failed(tx.error); res(false); };
+      tx.onabort = () => { failed(tx.error); res(false); }; // 저장 공간 부족은 여기로 온다
+    } catch (e) { failed(e); res(false); }
   });
 }
 
 export function del(store, id) {
   db[store].delete(id);
-  if (idb) idb.transaction(store, 'readwrite').objectStore(store).delete(id);
+  if (!idb) return;
+  try { idb.transaction(store, 'readwrite').objectStore(store).delete(id); } catch (e) { failed(e); }
 }
 
 // 편집 중인 본문은 localStorage에도 즉시 남겨서, IndexedDB 기록 전에 앱이 꺼져도 복구한다.
@@ -135,14 +147,13 @@ export function clearDraft(id) {
 function recoverDraft() {
   try {
     const d = JSON.parse(localStorage.getItem(DRAFT) || 'null');
-    localStorage.removeItem(DRAFT);
     const c = d && db.chapters.get(d.id);
     if (c && d.t > (c.updatedAt || 0)) {
       c.text = d.text;
       if (d.quotes) c.quotes = d.quotes;
       if (d.notes) c.notes = d.notes;
-      put('chapters', c);
-    }
+      put('chapters', c).then((ok) => { if (ok) localStorage.removeItem(DRAFT); });
+    } else localStorage.removeItem(DRAFT);
   } catch {}
 }
 
@@ -239,10 +250,15 @@ export function deleteFolder(fid) {
   del('folders', fid);
 }
 
+// 지운 것들을 돌려준다 (되돌리기용). 이전 버전은 바로 지우지 않고, 다음에 앱을 켤 때 주인 없는 것만 치운다.
 export function deleteWork(wid) {
-  deleteVersionsOfWork(wid);
-  for (const s of ['chapters', 'entries', 'folders', 'relations']) for (const o of [...db[s].values()]) if (o.workId === wid) del(s, o.id);
+  const gone = { works: [db.works.get(wid)].filter(Boolean) };
+  for (const s of ['chapters', 'entries', 'folders', 'relations']) {
+    gone[s] = [...db[s].values()].filter((o) => o.workId === wid);
+    for (const o of gone[s]) del(s, o.id);
+  }
   del('works', wid);
+  return () => { for (const [s, list] of Object.entries(gone)) for (const o of list) put(s, o, { touch: false }); };
 }
 
 export function touchWork(wid) {
@@ -252,11 +268,14 @@ export function touchWork(wid) {
 
 // ---- 이전 버전 저장소 (versions.js에서만 쓴다) ----
 export const rawDB = () => idb;
-function deleteVersionsOfWork(wid) {
+// 작품이 지워진 이전 버전 치우기 (켤 때 한 번)
+function cleanOrphanVersions() {
   if (!idb) return;
-  const tx = idb.transaction('versions', 'readwrite');
-  const q = tx.objectStore('versions').index('workId').openCursor(IDBKeyRange.only(wid));
-  q.onsuccess = () => { const c = q.result; if (c) { c.delete(); c.continue(); } };
+  try {
+    const tx = idb.transaction('versions', 'readwrite');
+    const q = tx.objectStore('versions').openCursor();
+    q.onsuccess = () => { const c = q.result; if (!c) return; if (!db.works.has(c.value.workId)) c.delete(); c.continue(); };
+  } catch {}
 }
 
 // ---- 백업 ----
@@ -265,8 +284,42 @@ export function exportAll() {
   for (const s of STORES) o[s] = [...db[s].values()];
   return o;
 }
-export async function importAll(o) {
+// 백업을 들이기 전에: 모양을 확인하고, 이 기기와 비교해 무엇이 어떻게 바뀌는지 셈한다.
+//   plan.items = [{ store, x(백업 것), local(이 기기 것 | undefined), kind: 'new' | 'newer' | 'older' | 'same' }]
+export function planImport(o) {
   if (!o || o.app !== 'loreleaf') throw new Error('갈피 백업 파일이 아니에요.');
-  for (const s of STORES) for (const x of o[s] || []) await put(s, x, { touch: false });
+  const bad = (why) => { throw new Error(`백업 파일이 망가진 것 같아요. (${why})`); };
+  const items = [];
+  for (const s of STORES) {
+    if (o[s] == null) continue;
+    if (!Array.isArray(o[s])) bad(s);
+    for (const x of o[s]) {
+      if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id) bad(`${s}의 id`);
+      if (s === 'chapters' && (typeof x.text !== 'string' || typeof x.workId !== 'string')) bad('화 내용');
+      if (s === 'works' && typeof x.title !== 'string') bad('작품 제목');
+      if ((s === 'entries' || s === 'relations' || s === 'folders') && typeof x.workId !== 'string') bad(s);
+      const local = db[s].get(x.id);
+      const kind = !local ? 'new'
+        : JSON.stringify(local) === JSON.stringify(x) ? 'same'
+        : (x.updatedAt || 0) > (local.updatedAt || 0) ? 'newer'
+        : 'older'; // 이 기기 쪽이 더 새롭거나, 시각이 같은데 내용이 다르면 합칠 때 이 기기 것을 지킨다
+      items.push({ store: s, x, local, kind });
+    }
+  }
+  const count = (k) => items.filter((i) => i.kind === k).length;
+  return { items, works: (o.works || []).map((w) => w.title), exportedAt: o.exportedAt, n: { new: count('new'), newer: count('newer'), older: count('older'), same: count('same') } };
+}
+
+// mode 'merge': 없는 것과 백업이 더 새로운 것만 / 'replace': 백업 그대로 (이 기기에서 더 최근에 고친 것도)
+// 덮어쓰는 화는 지금 모습을 먼저 '이전 버전'으로 남긴다.
+export async function applyImport(plan, mode, keepVersion) {
+  let n = 0;
+  for (const it of plan.items) {
+    if (it.kind === 'same' || (mode === 'merge' && it.kind === 'older')) continue;
+    if (it.store === 'chapters' && it.local && it.local.text !== it.x.text) await keepVersion?.(it.local);
+    await put(it.store, it.x, { touch: false });
+    n++;
+  }
   migrateAll();
+  return n;
 }

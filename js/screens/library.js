@@ -1,10 +1,11 @@
 // 작품 목록. 가장 먼저 보이는 건 "이어 쓰기" 하나.
 import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast, download, josa, sheet } from '../ui.js';
-import { db, worksSorted, chaptersOf, createWork, deleteWork, put, importAll } from '../store.js';
+import { db, worksSorted, chaptersOf, createWork, deleteWork, put, planImport, applyImport } from '../store.js';
 import { go } from '../router.js';
 import { emit } from '../guide.js';
 import { manuscriptText, lengthOf } from '../quotes.js';
 import { saveBackup, lastBackup, canOverwrite } from '../backup.js';
+import { snapshot } from '../versions.js';
 import { newVersion, showUpdate } from '../update.js';
 import { todayCount } from '../today.js';
 import { pref, setPref } from '../prefs.js';
@@ -25,8 +26,14 @@ export function workMenu(w, { onDeleted } = {}) {
     } },
     { label: '원고를 텍스트 파일로 내보내기', run: () => exportText(w) },
     { label: '작품 삭제', danger: true, run: async () => {
-      const ok = await confirmBox(`‘${w.title}’${josa(w.title, '을', '를')} 지울까요? 원고와 설정이 모두 사라지고 되돌릴 수 없어요.`, { ok: '삭제', danger: true });
-      if (ok) { deleteWork(w.id); toast('작품을 지웠어요.'); onDeleted?.(); }
+      const ok = await confirmBox(`‘${w.title}’${josa(w.title, '을', '를')} 지울까요? 원고와 설정이 모두 사라져요.`, { ok: '삭제', danger: true });
+      if (!ok) return;
+      const restore = deleteWork(w.id);
+      onDeleted?.();
+      toast('작품을 지웠어요.', {
+        action: '되돌리기', duration: 10000,
+        onAction: () => { restore(); go('/', { replace: true }); toast('작품을 되살렸어요.'); },
+      });
     } },
   ], w.title);
 }
@@ -120,11 +127,13 @@ function appMenu() {
     { label: '백업 파일 불러오기', run: () => {
       const input = h('input', { type: 'file', accept: '.json,application/json' });
       input.onchange = async () => {
+        let plan;
         try {
-          await importAll(JSON.parse(await input.files[0].text()));
-          toast('백업을 불러왔어요.');
-          go('/', { replace: true });
-        } catch (e) { toast(e.message || '불러오지 못했어요.'); }
+          let o;
+          try { o = JSON.parse(await input.files[0].text()); } catch { throw new Error('백업 파일을 읽지 못했어요. 갈피에서 저장한 .json 파일인지 확인해 주세요.'); }
+          plan = planImport(o);
+        } catch (e) { toast(e.message || '불러오지 못했어요.', { duration: 6000 }); return; }
+        importSheet(plan);
       };
       input.click();
     } },
@@ -251,4 +260,32 @@ function todayLine() {
       goal ? h('span', null, done ? '오늘 목표를 채웠어요' : '오늘', ' ', h('b', null, num(n)), ` / ${num(goal)}자`)
         : h('span', null, '오늘 ', h('b', null, num(n)), '자 썼어요')),
     goal ? h('div', { class: 'today-bar' }, h('span', { style: `width:${Math.min(100, (n / goal) * 100)}%` })) : null);
+}
+
+// 백업 불러오기: 무엇이 들어 있고 이 기기와 어떻게 다른지 보여 준 뒤, 합칠지 그대로 되돌릴지 고른다.
+export function importSheet(plan) {
+  const { n } = plan;
+  const when = plan.exportedAt ? new Date(plan.exportedAt) : null;
+  const run = async (mode) => {
+    s.close();
+    const done = await applyImport(plan, mode, (c) => snapshot(c));
+    go('/', { replace: true });
+    toast(done ? `백업에서 ${done}개를 들였어요.` : '바뀐 게 없어요.');
+  };
+  const nothing = !n.new && !n.newer && !n.older;
+  const s = sheet(h('div', { class: 'import-sheet' },
+    h('p', null, h('b', null, `작품 ${plan.works.length}개`), plan.works.length ? ` · ${plan.works.slice(0, 3).join(', ')}${plan.works.length > 3 ? ' 외' : ''}` : ''),
+    when ? h('p', { class: 'muted small' }, `${when.getFullYear()}년 ${when.getMonth() + 1}월 ${when.getDate()}일에 만든 백업`) : null,
+    h('ul', { class: 'import-counts' },
+      h('li', null, '이 기기에 없는 것 ', h('b', null, n.new)),
+      h('li', null, '백업 쪽이 더 새로운 것 ', h('b', null, n.newer)),
+      h('li', null, '이 기기 쪽이 더 새로운 것 ', h('b', null, n.older)),
+      h('li', null, '똑같은 것 ', h('b', null, n.same))),
+    nothing ? h('p', { class: 'muted' }, '이 기기에 이미 다 들어 있어요.') : [
+      h('button', { class: 'btn primary', onclick: () => run('merge') }, '합치기 (추천)'),
+      h('p', { class: 'muted small' }, '없는 것과 더 새로운 것만 들여요. 이 기기에서 더 최근에 고친 글은 그대로 지켜요.'),
+      n.older ? h('button', { class: 'btn ghost danger-text', onclick: () => run('replace') }, '백업 그대로 되돌리기') : null,
+      n.older ? h('p', { class: 'muted small' }, `이 기기에서 더 최근에 고친 ${n.older}개도 백업 때로 돌아가요. 지금 글은 화마다 ‘이전 버전’에 남아요.`) : null,
+    ]),
+  { title: '백업 불러오기' });
 }
