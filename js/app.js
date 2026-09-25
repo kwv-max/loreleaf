@@ -11,6 +11,7 @@ import { editorScreen } from './screens/editor.js';
 import { helpScreen } from './screens/help.js';
 import { prefsScreen } from './screens/prefs.js';
 import { searchScreen } from './screens/search.js';
+import { graphScreen } from './screens/graph.js';
 import { initUpdates, onUpdate } from './update.js';
 
 route('/', libraryScreen);
@@ -19,6 +20,8 @@ route('/prefs', prefsScreen);
 route('/w/:wid', manuscriptScreen);
 route('/w/:wid/lore', loreScreen);
 route('/w/:wid/search', searchScreen);
+route('/w/:wid/graph', graphScreen);
+route('/w/:wid/graph/:eid', graphScreen);
 route('/w/:wid/lore/:type', categoryScreen);
 route('/w/:wid/lore/:type/:fid', categoryScreen);
 route('/w/:wid/c/:cid', editorScreen);

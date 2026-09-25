@@ -390,7 +390,8 @@ export function entryScreen({ wid, eid }) {
       .filter((x) => x.other)
       .sort((a, b) => a.other.name.localeCompare(b.other.name, 'ko'));
     relBox.replaceChildren(
-      h('h3', null, '관계', rels.length ? h('span', { class: 'count' }, rels.length) : null),
+      h('h3', { class: 'sec-head' }, h('span', null, '관계', rels.length ? h('span', { class: 'count' }, rels.length) : null),
+        rels.length ? h('button', { class: 'link-btn small', onclick: () => go(`/w/${wid}/graph/${e.id}`) }, '관계도', icon('chev')) : null),
       rels.length ? h('div', { class: 'list' }, rels.map(({ r, other }) => {
         const [mine, theirs] = sidesFor(r, e.id);
         const m = sideText(mine), t = sideText(theirs);

@@ -106,6 +106,12 @@ export function loreScreen({ wid }) {
     toast(`‘${label}’ 분류를 만들었어요.`);
     go(`/w/${wid}/lore/${t.key}`);
   };
-  return shell(w, 'lore', [atBanner(wid), rows,
+  const nRel = [...db.relations.values()].filter((r) => r.workId === wid).length;
+  const graphRow = nRel ? h('div', { class: 'list graph-entry' }, h('div', { class: 'row' },
+    h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/graph`) },
+      icon('people', 'type-ic'),
+      h('div', null, h('div', { class: 'row-title' }, '관계도', h('span', { class: 'count' }, nRel)), h('div', { class: 'row-sub' }, '캐릭터끼리의 관계를 한눈에'))),
+    icon('chev', 'chev'))) : null;
+  return shell(w, 'lore', [atBanner(wid), graphRow, rows,
     h('button', { class: 'add-type', onclick: addType }, icon('plus'), '새 분류 만들기')]);
 }

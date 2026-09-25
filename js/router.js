@@ -48,7 +48,7 @@ export function parentOf(p) {
   if (s[0] !== 'w' || s.length <= 2) return '/';
   const w = `/w/${s[1]}`;
   if (s[2] === 'lore' && s.length === 5) return `${w}/lore/${s[3]}`;
-  if ((s[2] === 'lore' && s.length === 4) || s[2] === 'e') return `${w}/lore`;
+  if ((s[2] === 'lore' && s.length === 4) || s[2] === 'e' || s[2] === 'graph') return `${w}/lore`;
   return w;
 }
 export function seedHistory(p) {

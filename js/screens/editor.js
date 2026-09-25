@@ -694,6 +694,7 @@ export function editorScreen({ wid, cid }) {
       for (const e of list) items.push(row(e, e.type === 'character' ? e.aliases.join(', ') : ''));
     }
     if (!items.length) items.push({ info: true, label: '아직 설정이 없어요. 본문의 이름을 길게 눌러 선택하면 캐릭터로 바로 등록할 수 있어요.' });
+    if ([...db.relations.values()].some((r) => r.workId === wid)) items.push({ label: '관계도 보기 ›', run: () => { setViewAt(wid, cid); go(`/w/${wid}/graph`); } });
     items.push({ label: '설정 화면에서 크게 보기 ›', run: () => { setViewAt(wid, cid); go(`/w/${wid}/lore`); } });
     actions(items, `설정 · ${ch.title} 시점`);
   }
