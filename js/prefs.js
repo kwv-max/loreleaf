@@ -1,6 +1,8 @@
 // 이 기기의 환경 설정. 작품 데이터가 아니라 쓰는 사람의 취향이라 localStorage에 둔다.
+import { lang } from './i18n.js';
+
 const KEY = 'll:prefs';
-const DEFAULTS = { quotes: 'curly', accent: 'forest', theme: 'system', edSize: 'm', edLine: 'normal', edFont: 'sans', goal: 0, serialGap: true, serialTitle: false }; // quotes: 'curly' = “ ” ‘ ’, 'straight' = " ' / theme: 'system' | 'light' | 'dark'
+const DEFAULTS = { quotes: lang() === 'ja' ? 'corner' : 'curly', accent: 'forest', theme: 'system', edSize: 'm', edLine: 'normal', edFont: 'sans', goal: 0, serialGap: true, serialTitle: false }; // quotes: 'curly' = “ ” ‘ ’, 'straight' = " ' / theme: 'system' | 'light' | 'dark'
 
 export function pref(name) {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }[name]; } catch { return DEFAULTS[name]; }
@@ -61,7 +63,10 @@ export const TEXT_SIZES = { s: 15, m: 17, l: 19, xl: 21 };
 export const TEXT_LINES = { normal: 1.85, wide: 2.15 };
 export const TEXT_FONTS = {
   sans: 'var(--font)',
-  serif: '"Noto Serif KR", "Noto Serif CJK KR", "Source Han Serif K", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif',
+  // 일본어 화면은 일본어 명조를 먼저 (같은 한자라도 한국어 글꼴은 모양이 달라서)
+  serif: lang() === 'ja'
+    ? '"Noto Serif JP", "Noto Serif CJK JP", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif KR", serif'
+    : '"Noto Serif KR", "Noto Serif CJK KR", "Source Han Serif K", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif',
 };
 export function applyText() {
   const r = document.documentElement.style;
@@ -72,7 +77,7 @@ export function applyText() {
   if (pref('edFont') === 'serif' && !document.getElementById('serif-font')) {
     document.head.append(Object.assign(document.createElement('link'), {
       id: 'serif-font', rel: 'stylesheet',
-      href: 'https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap',
+      href: `https://fonts.googleapis.com/css2?family=${lang() === 'ja' ? 'Noto+Serif+JP' : 'Noto+Serif+KR'}:wght@400;700&display=swap`,
     }));
   }
 }

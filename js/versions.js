@@ -3,6 +3,7 @@
 //   version = { id, workId, chapterId, text, quotes, notes, at, len }
 import { rawDB, uid } from './store.js';
 import { lengthOf } from './quotes.js';
+import { t, lang } from './i18n.js';
 
 const S = 'versions';
 const H = 3600 * 1000, D = 24 * H;
@@ -83,7 +84,7 @@ export function whenLabel(at) {
   const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((day(now) - day(d)) / D);
-  if (diff === 0) return `오늘 ${hm}`;
-  if (diff === 1) return `어제 ${hm}`;
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${hm}`;
+  if (diff === 0) return t('time.today', { hm });
+  if (diff === 1) return t('time.yesterday', { hm });
+  return `${new Intl.DateTimeFormat(lang(), { month: 'long', day: 'numeric' }).format(d)} ${hm}`;
 }

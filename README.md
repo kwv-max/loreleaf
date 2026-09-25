@@ -43,6 +43,7 @@ npm start
 | + | 화 하나만 텍스트로 내보내기 | `library.js` `exportChapter` |
 | + | 캐릭터 표시 색 직접 고르기 (팔레트 8색 + 무지개 칸) | `entry.js` |
 | + | 환경 설정: 따옴표 모양(둥근 “ ” / 곧은 " "). 여백 표시·복사·.txt 내보내기에 적용 | `js/screens/prefs.js`, `js/quotes.js` |
+| + | 화면 언어: 한국어·English·日本語 (기본은 휴대폰 언어). 문구는 `js/lang/`, 점검은 `node tools/check-lang.mjs`. 영어는 단어 수, 일본어는 기본 「」·일본어 글꼴, 샘플 작품도 언어별 | `js/i18n.js`, `js/lang/*` |
 
 ## 설계 메모
 

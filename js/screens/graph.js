@@ -6,6 +6,7 @@ import { db, put, chaptersOf } from '../store.js';
 import { go, back } from '../router.js';
 import { orderOf, valueAt, viewAtFor, setViewAt } from '../timeline.js';
 import { emit } from '../guide.js';
+import { t as tr } from '../i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const s = (tag, attrs, ...kids) => {
@@ -95,25 +96,25 @@ export function graphScreen({ wid, eid }) {
     atBar.hidden = !show;
     if (!show) return;
     atBar.replaceChildren(
-      h('span', { class: 'muted small' }, '시점'),
+      h('span', { class: 'muted small' }, tr('entry.at')),
       h('button', {
         class: 'at-btn',
         onclick: () => actions([
-          { label: (atCid ? '' : '✓ ') + '최신 (마지막 화까지)', run: () => setAt(null) },
+          { label: (atCid ? '' : '✓ ') + tr('entry.latest'), run: () => setAt(null) },
           ...chaptersOf(wid).map((c) => ({ label: (c.id === atCid ? '✓ ' : '') + c.title, run: () => setAt(c.id) })),
-        ], '몇 화 시점으로 볼까요?'),
-      }, atCid ? chTitle(atCid) : '최신 (마지막 화까지)', icon('down')));
+        ], tr('entry.atWhich')),
+      }, atCid ? chTitle(atCid) : tr('entry.latest'), icon('down')));
   }
   function setAt(cid) { atCid = cid; setViewAt(wid, cid); drawAt(); relayout(true); } // 시점이 바뀌면 관계도 다시 계산
 
   // ---- 그림 ----
-  const svg = s('svg', { class: 'graph-svg', role: 'img', 'aria-label': '관계도' });
+  const svg = s('svg', { class: 'graph-svg', role: 'img', 'aria-label': tr('graph.title') });
   const stage = h('div', { class: 'graph-stage' }, svg);
   const panel = h('div', { class: 'graph-panel', hidden: true });
   const empty = h('div', { class: 'empty graph-empty', hidden: true },
     icon('people', 'big'),
-    h('p', null, '아직 그릴 관계가 없어요.'),
-    h('p', { class: 'muted small' }, '캐릭터 설정의 ‘관계’에서 ‘+ 관계 추가’로 적어 보세요.'));
+    h('p', null, tr('graph.empty')),
+    h('p', { class: 'muted small' }, tr('graph.emptySub')));
 
   let P = new Map();   // 캐릭터 id → 화면 좌표 {x, y}
   let fit = null;      // 자동 배치 좌표 ↔ 화면 좌표
@@ -184,8 +185,8 @@ export function graphScreen({ wid, eid }) {
       h('div', { class: 'graph-panel-head' },
         h('span', { class: 'dot lg', style: `--c:${v.color}` }),
         h('b', null, v.name),
-        h('button', { class: 'link-btn', onclick: () => go(`/w/${wid}/e/${v.id}`) }, '설정 열기', icon('chev')),
-        h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: () => { focus = null; draw(); } }, icon('close'))),
+        h('button', { class: 'link-btn', onclick: () => go(`/w/${wid}/e/${v.id}`) }, tr('entry.open'), icon('chev')),
+        h('button', { class: 'icon-btn sm', 'aria-label': tr('common.close'), onclick: () => { focus = null; draw(); } }, icon('close'))),
       mine.length ? h('div', { class: 'graph-rels' }, mine.map((e) => {
         const o = e.a.id === focus ? e.b : e.a;
         const my = e.a.id === focus ? e.ab : e.ba, th = e.a.id === focus ? e.ba : e.ab;
@@ -194,8 +195,8 @@ export function graphScreen({ wid, eid }) {
           h('span', { class: 'graph-rel-name' }, o.name),
           h('span', { class: 'graph-rel-text' },
             my ? h('span', null, my) : null,
-            th ? h('span', { class: 'muted' }, `${o.name}${josa(o.name, '이', '가')} 보기엔: ${th}`) : null));
-      })) : h('p', { class: 'muted small' }, '이 시점에는 관계가 없어요.'));
+            th ? h('span', { class: 'muted' }, tr('rel.theySee', { name: o.name, text: th })) : null));
+      })) : h('p', { class: 'muted small' }, tr('graph.noneAt')));
   }
 
   // ---- 손가락 (그림 앱처럼) ----
@@ -342,14 +343,14 @@ export function graphScreen({ wid, eid }) {
 
   function menu() {
     actions([
-      { label: '자리 다시 잡기', run: () => { delete w.graph; put('works', w, { touch: false }); relayout(false); } },
-      { label: '전체가 보이게', run: () => relayout(false) },
-    ], '관계도');
+      { label: tr('graph.relayout'), run: () => { delete w.graph; put('works', w, { touch: false }); relayout(false); } },
+      { label: tr('graph.fit'), run: () => relayout(false) },
+    ], tr('graph.title'));
   }
 
   drawAt();
   const el = h('div', { class: 'screen graph-screen' },
-    topbar({ onBack: () => back(`/w/${wid}/lore`), title: '관계도', right: [iconBtn('more', '관계도 메뉴', menu)] }),
+    topbar({ onBack: () => back(`/w/${wid}/lore`), title: tr('graph.title'), right: [iconBtn('more', tr('graph.menu'), menu)] }),
     atBar,
     h('main', { class: 'graph-main' }, stage, empty, panel));
   // 크기가 정해진 뒤에 배치

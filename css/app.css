@@ -19,6 +19,10 @@
   --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   color-scheme: light;
 }
+/* 일본어 화면: 한자가 일본어 모양으로 보이게 일본어 글꼴을 먼저 */
+:root:lang(ja) {
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+}
 /* 어두운 화면: 시스템 설정을 따르되, 환경 설정에서 직접 고르면 그쪽이 먼저 (data-theme) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -812,3 +816,21 @@ mark.multi {
 .tour-card .tour-check { color: var(--accent); font-size: 14px; }
 .tour-card:active { background: var(--line); }
 .guide-text b { font-weight: 700; }
+
+/* ---------- 자체 드롭다운 · 한 줄 설정 ---------- */
+.set-rows { border-radius: 14px; background: var(--surface); }
+.set-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 4px 6px 4px 16px; font-size: 15px; }
+.set-line + .set-line { border-top: 1px solid var(--line); }
+.dd { position: relative; min-width: 0; }
+.dd-btn { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 8px 10px; border-radius: 10px; color: var(--accent); font-size: 15px; font-weight: 600; }
+.dd-btn:active, .dd-btn[aria-expanded="true"] { background: var(--accent-soft); }
+.dd-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-ic { width: 16px; height: 16px; flex: none; }
+.dd-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; min-width: 210px; max-width: 80vw; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--line); animation: rise .12s ease-out; }
+.dd-menu.up { top: auto; bottom: calc(100% + 4px); }
+.dd-opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px 11px 6px; border-radius: 10px; text-align: left; font-size: 15px; }
+.dd-opt:active, .dd-opt:focus-visible { background: var(--line); outline: none; }
+.dd-opt.on { color: var(--accent); font-weight: 700; }
+.dd-check { width: 18px; flex: none; text-align: center; }
+.dd-opt-text { display: flex; flex-direction: column; }
+.dd-opt-text small { color: var(--muted); font-weight: 400; }

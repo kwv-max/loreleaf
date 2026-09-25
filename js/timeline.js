@@ -6,6 +6,7 @@ import { h, sheet, autogrow, toast } from './ui.js';
 import { db, put, uid, chaptersOf, recordStore, sidesFor, otherOf } from './store.js';
 import { buildMatcher } from './highlight.js';
 import { emit } from './guide.js';
+import { t as tr } from './i18n.js';
 
 // 작품의 화 순서: chapterId → 0, 1, 2 ...
 export const orderOf = (wid) => new Map(chaptersOf(wid).map((c, i) => [c.id, i]));
@@ -49,7 +50,7 @@ export function changesIn(wid, cid) {
       const [mine] = sidesFor(r, me);
       const c = (mine.changes || []).find((x) => x.chapterId === cid);
       const entry = db.entries.get(me), other = db.entries.get(otherOf(r, me));
-      if (c && entry && other) out.push({ entry, field: { label: `관계: ${other.name}` }, change: c, relation: r });
+      if (c && entry && other) out.push({ entry, field: { label: tr('fact.relLabel', { name: other.name }) }, change: c, relation: r });
     }
   }
   return out;
@@ -110,6 +111,11 @@ const DEFAULT_LINK = {
   '소속': 'org',
   '가진 물건': 'item', '소지품': 'item',
   '소유자': 'character', '관련 인물': 'character', '우두머리': 'character', '구성원': 'character',
+  // 영어·일본어 화면에서 만든 항목 이름도
+  'Current location': 'place', 'Location': 'place', 'Base': 'place', 'Affiliation': 'org', 'Belongings': 'item',
+  'Owner': 'character', 'Related people': 'character', 'Leader': 'character', 'Members': 'character',
+  '現在地': 'place', '場所': 'place', '本拠地': 'place', '所属': 'org', '持ち物': 'item',
+  '持ち主': 'character', '関係人物': 'character', 'リーダー': 'character', 'メンバー': 'character',
 };
 export const linkOf = (f) => (f.link !== undefined ? f.link : DEFAULT_LINK[f.label.trim()] || null);
 
@@ -165,7 +171,7 @@ export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}
     let saved = false;
 
     const at = () => (cid ? order.get(cid) : Infinity);
-    const input = autogrow(h('textarea', { class: 'field-input long', rows: 2, placeholder: '내용' }));
+    const input = autogrow(h('textarea', { class: 'field-input long', rows: 2, placeholder: tr('fact.placeholder') }));
     input.value = valueAt(f, at(), order).value;
 
     // "이 화부터 바뀜" / "원래 값 고치기" 선택 (auto에서, 보이는 값이 이 화의 기록이 아닐 때만)
@@ -176,9 +182,9 @@ export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}
     const chTitle = (id) => db.chapters.get(id)?.title || '';
     const seg = needChoice ? h('div', { class: 'seg' }) : null;
     const drawSeg = () => seg?.replaceChildren(
-      h('button', { class: 'seg-btn' + (asChange ? ' on' : ''), type: 'button', onclick: () => { asChange = true; drawSeg(); } }, `${chTitle(cid)}부터 바뀜`),
+      h('button', { class: 'seg-btn' + (asChange ? ' on' : ''), type: 'button', onclick: () => { asChange = true; drawSeg(); } }, tr('fact.fromHere', { title: chTitle(cid) })),
       h('button', { class: 'seg-btn' + (!asChange ? ' on' : ''), type: 'button', onclick: () => { asChange = false; drawSeg(); } },
-        src.rec ? `${chTitle(src.rec.chapterId)} 기록 고치기` : '처음 값 고치기'));
+        src.rec ? tr('fact.editRecord', { title: chTitle(src.rec.chapterId) }) : tr('fact.editFirst')));
     drawSeg();
 
     // 'change': 몇 화부터인지 고르기
@@ -186,7 +192,7 @@ export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}
       ? h('select', {
         class: 'field-input',
         onchange: () => { cid = pick.value; input.value = valueAt(f, at(), order).value; },
-      }, chapters.map((c) => h('option', { value: c.id, selected: c.id === cid }, `${c.title}부터`)))
+      }, chapters.map((c) => h('option', { value: c.id, selected: c.id === cid }, tr('fact.from', { title: c.title }))))
       : null;
 
     const form = h('form', {
@@ -200,16 +206,16 @@ export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}
           if (v !== valueAt(f, at(), order).value) { dropped = setChange(e, f, cid, v); emit('change-recorded'); }
         } else if (src.rec) { dropped = setChange(e, f, src.rec.chapterId, v); if (src.rec.chapterId === cid) emit('change-recorded'); }
         else { f.value = v; dropped = pruneSame(f, order); put(recordStore(e), e); }
-        if (dropped) toast(`앞 화와 같은 값이 된 기록 ${dropped}개를 지웠어요.`);
+        if (dropped) toast(tr('fact.pruned', { n: dropped }));
         saved = true;
         s.close();
       },
     },
     pick, seg, input,
-    needChoice ? h('p', { class: 'muted small' }, '‘바뀜’으로 적으면 앞 화들은 예전 값 그대로예요.') : null,
-    h('button', { class: 'btn primary', type: 'submit' }, '저장'));
+    needChoice ? h('p', { class: 'muted small' }, tr('fact.changeNote')) : null,
+    h('button', { class: 'btn primary', type: 'submit' }, tr('common.save')));
 
-    const s = sheet(form, { title: title || `${e.name} · ${f.label || '설정'}`, onClose: () => resolve(saved) });
+    const s = sheet(form, { title: title || `${e.name} · ${f.label || tr('fact.setting')}`, onClose: () => resolve(saved) });
     setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 60);
   });
 }

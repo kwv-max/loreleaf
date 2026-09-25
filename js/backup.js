@@ -2,6 +2,7 @@
 // 파일을 직접 고칠 수 없는 브라우저(아이폰 사파리 등)는 예전처럼 새 파일로 내려받는다.
 import { exportAll } from './store.js';
 import { download } from './ui.js';
+import { t } from './i18n.js';
 
 // 고른 파일의 손잡이(handle)는 JSON으로 못 바꾸니 작품 데이터와 따로 IndexedDB에 둔다.
 function kv(mode, fn) {
@@ -35,7 +36,7 @@ function remember(name) {
 
 function dated() {
   const d = new Date();
-  return `갈피-백업-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
+  return `${t('backup.fileName')}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
 }
 
 async function writable(handle) {
@@ -61,8 +62,8 @@ export async function saveBackup({ pickNew = false } = {}) {
     if (!handle) {
       try {
         handle = await window.showSaveFilePicker({
-          suggestedName: '갈피-백업.json',
-          types: [{ description: '갈피 백업', accept: { 'application/json': ['.json'] } }],
+          suggestedName: t('backup.fileName') + '.json',
+          types: [{ description: t('backup.fileDesc'), accept: { 'application/json': ['.json'] } }],
         });
       } catch (e) {
         if (e.name === 'AbortError') return null;
@@ -80,5 +81,5 @@ export async function saveBackup({ pickNew = false } = {}) {
       handle = null; // 파일이 옮겨졌거나 지워졌으면 한 번 더 고르게
     }
   }
-  throw new Error('백업 파일에 쓰지 못했어요.');
+  throw new Error(t('backup.writeFailed'));
 }

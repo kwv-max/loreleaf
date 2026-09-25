@@ -1,6 +1,15 @@
 {
-  "version": "2026.09.25.11",
+  "version": "2026.09.25.12",
   "notes": [
-    "도움말에 ‘해 보기’가 생겼어요. 대사 줄, 주석, 화마다 바뀌는 설정, 관계, 이전 버전을 샘플 작품에서 하나씩 직접 해 볼 수 있어요."
+    "영어와 일본어를 지원해요. 기본은 휴대폰 언어를 따르고, 환경 설정에서 바꿀 수 있어요.",
+    "언어와 화면 모드는 환경 설정 맨 위에서 고를 수 있어요."
+  ],
+  "notes_en": [
+    "Loreleaf now speaks English and Japanese. It follows your phone’s language; change it anytime in Settings.",
+    "In English, lengths are counted in words."
+  ],
+  "notes_ja": [
+    "英語と日本語に対応しました。スマホの言語に合わせて表示され、設定でいつでも変えられます。",
+    "日本語ではかぎかっこ「」と日本語フォントが標準になります。"
   ]
 }

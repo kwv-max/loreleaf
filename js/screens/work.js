@@ -3,9 +3,10 @@ import { h, icon, iconBtn, topbar, num, relTime, ask, actions, toast, josa, pick
 import { db, chaptersOf, createChapter, put, del, typesOf, entriesOf, createType } from '../store.js';
 import { go, back } from '../router.js';
 import { workMenu, exportChapter, serialCopy } from './library.js';
-import { lengthOf } from '../quotes.js';
+import { countOf } from '../quotes.js';
 import { setViewAt } from '../timeline.js';
 import { atBanner } from './lore.js';
+import { t, chapterNumOf, renumberTitle } from '../i18n.js';
 
 function tabs(wid, active) {
   const tab = (key, label, to) => h('button', {
@@ -14,8 +15,8 @@ function tabs(wid, active) {
     onclick: () => active !== key && go(to, { replace: true }),
   }, label);
   return h('div', { class: 'tabs', role: 'tablist' },
-    tab('ms', '원고', '/w/' + wid),
-    tab('lore', '설정', `/w/${wid}/lore`));
+    tab('ms', t('work.tabMs'), '/w/' + wid),
+    tab('lore', t('work.tabLore'), `/w/${wid}/lore`));
 }
 
 function shell(w, active, body, bottom) {
@@ -24,8 +25,8 @@ function shell(w, active, body, bottom) {
       onBack: () => back('/'),
       title: w.title,
       right: [
-        iconBtn('search', '작품에서 찾기', () => go(`/w/${w.id}/search`)),
-        iconBtn('more', '작품 메뉴', () => workMenu(w, { onDeleted: () => go('/', { replace: true }) })),
+        iconBtn('search', t('work.search'), () => go(`/w/${w.id}/search`)),
+        iconBtn('more', t('lib.workMenu'), () => workMenu(w, { onDeleted: () => go('/', { replace: true }) })),
       ],
     }),
     tabs(w.id, active),
@@ -54,33 +55,33 @@ export function manuscriptScreen({ wid }) {
     return h('div', { class: 'row' + (c.id === w.lastChapterId ? ' current' : ''), 'data-id': c.id },
       h('button', { class: 'row-main', onclick: () => !reorder && go(`/w/${wid}/c/${c.id}`) },
         h('div', { class: 'row-title' }, c.title),
-        h('div', { class: 'row-sub' }, text ? `${num(lengthOf(c))}자 · ${relTime(c.updatedAt)}` : '비어 있음'),
+        h('div', { class: 'row-sub' }, text ? `${t('unit.chars', { n: num(countOf(c)) })} · ${relTime(c.updatedAt)}` : t('work.empty')),
         text && !reorder ? h('div', { class: 'row-snippet' }, text.slice(0, 70).replace(/\s+/g, ' ')) : null),
       reorder
-        ? h('span', { class: 'grip', 'aria-label': '끌어서 옮기기' }, icon('grip'))
-        : iconBtn('more', '화 메뉴', () => chapterMenu(c, i, list)));
+        ? h('span', { class: 'grip', 'aria-label': t('work.drag') }, icon('grip'))
+        : iconBtn('more', t('work.chapterMenu'), () => chapterMenu(c, i, list)));
   };
   // 부 제목 줄: 누르면 접고 펴기
   const partHead = (c, i) => {
     let n = 0, len = 0;
-    for (let k = i; k < list.length && (k === i || !list[k].part); k++) { n++; len += lengthOf(list[k]); }
+    for (let k = i; k < list.length && (k === i || !list[k].part); k++) { n++; len += countOf(list[k]); }
     const f = folded(c.id) && !reorder;
     return h('div', { class: 'part-head' + (f ? ' folded' : '') },
       h('button', { class: 'part-main', onclick: () => { if (!reorder) { setFolded(c.id, !f); refresh(); } } },
         icon(f ? 'chev' : 'down', 'part-ic'),
         h('b', null, c.part),
-        h('span', { class: 'muted small' }, `${n}화 · ${num(len)}자`)),
-      reorder ? null : iconBtn('more', '부 메뉴', () => partMenu(c)));
+        h('span', { class: 'muted small' }, `${t('unit.chapters', { n })} · ${t('unit.chars', { n: num(len) })}`)),
+      reorder ? null : iconBtn('more', t('work.partMenu'), () => partMenu(c)));
   };
 
   let body;
   if (q) {
     // 화 찾기: 번호(12, 12화)나 제목 글자
-    const numQ = /^\d+\s*화?$/.test(q) ? parseInt(q, 10) : null;
+    const numQ = /^\d+\s*(화|話)?$/.test(q) ? parseInt(q, 10) : null;
     const hits = list.map((c, i) => [c, i]).filter(([c, i]) => (numQ != null
-      ? i + 1 === numQ || c.title.startsWith(numQ + '화')
+      ? i + 1 === numQ || chapterNumOf(c.title) === numQ
       : c.title.toLowerCase().includes(q.toLowerCase())));
-    body = hits.length ? h('div', { class: 'list' }, hits.map(([c, i]) => chapterRow(c, i))) : h('p', { class: 'muted center pad' }, '맞는 화가 없어요.');
+    body = hits.length ? h('div', { class: 'list' }, hits.map(([c, i]) => chapterRow(c, i))) : h('p', { class: 'muted center pad' }, t('work.noMatch'));
   } else {
     const kids = [];
     let group = null, hide = false;
@@ -96,7 +97,7 @@ export function manuscriptScreen({ wid }) {
 
   // 위쪽 도구: 화가 많을 때만 찾기 칸, 두 화 이상이면 순서 바꾸기
   const find = list.length >= 12 && !reorder ? h('input', {
-    class: 'chapter-find', type: 'search', placeholder: '화 찾기 (번호나 제목)', value: q, enterkeyhint: 'search', 'aria-label': '화 찾기',
+    class: 'chapter-find', type: 'search', placeholder: t('work.findPh'), value: q, enterkeyhint: 'search', 'aria-label': t('work.find'),
     oninput: (ev) => {
       filterQ.set(wid, ev.target.value);
       const at = ev.target.selectionStart;
@@ -106,8 +107,8 @@ export function manuscriptScreen({ wid }) {
     },
   }) : null;
   const tools = list.length >= 2 ? h('div', { class: 'ms-tools' },
-    find || h('span', { class: 'muted small' }, reorder ? '손잡이를 끌어서 순서를 바꿔요.' : ''),
-    reorder ? null : h('button', { class: 'link-btn small', onclick: () => { reorderWid = wid; filterQ.delete(wid); refresh(); } }, '순서 바꾸기')) : null;
+    find || h('span', { class: 'muted small' }, reorder ? t('work.dragHint') : ''),
+    reorder ? null : h('button', { class: 'link-btn small', onclick: () => { reorderWid = wid; filterQ.delete(wid); refresh(); } }, t('work.reorder'))) : null;
 
   if (list.length >= 12 && !q && !reorder) {
     // 이어 쓰던 화가 보이게
@@ -115,14 +116,14 @@ export function manuscriptScreen({ wid }) {
   }
 
   // 샘플은 AI로 만든 예시 글이라는 걸 밝혀 둔다
-  const sampleNote = w.sample ? h('p', { class: 'muted small sample-note' }, '예시용 샘플 작품이에요. 글은 AI로 만들었어요.') : null;
+  const sampleNote = w.sample ? h('p', { class: 'muted small sample-note' }, t('work.sampleNote')) : null;
   return shell(w, 'ms', [sampleNote, tools, body],
     h('div', { class: 'bottom-bar' }, reorder
-      ? h('button', { class: 'btn primary', onclick: () => finishReorder(wid) }, '완료')
+      ? h('button', { class: 'btn primary', onclick: () => finishReorder(wid) }, t('work.done'))
       : h('button', {
         class: 'btn primary',
         onclick: () => { const c = createChapter(wid); go(`/w/${wid}/c/${c.id}`); },
-      }, icon('plus'), '새 화')));
+      }, icon('plus'), t('work.newChapter'))));
 }
 
 // 손잡이를 끌어 옮기기. 놓으면 화면 순서대로 order를 다시 매긴다.
@@ -177,45 +178,45 @@ function enableDrag(root, list) {
 async function finishReorder(wid) {
   reorderWid = null;
   const list = chaptersOf(wid);
-  const off = list.map((c, i) => [c, i + 1]).filter(([c, n]) => { const m = c.title.match(/^(\d+)화/); return m && +m[1] !== n; });
+  const off = list.map((c, i) => [c, i + 1]).filter(([c, n]) => { const m = chapterNumOf(c.title); return m != null && m !== n; });
   refresh();
   if (!off.length) return;
-  const sample = off.slice(0, 2).map(([c, n]) => `${c.title.match(/^\d+화/)[0]} → ${n}화`).join(', ');
-  if (await confirmBox(`화 번호도 새 순서에 맞출까요? (${sample}${off.length > 2 ? ' …' : ''}) 번호 뒤 제목은 그대로예요.`, { ok: '번호 맞추기' })) {
-    for (const [c, n] of off) { c.title = c.title.replace(/^\d+화/, `${n}화`); put('chapters', c, { touch: false }); }
+  const sample = off.slice(0, 2).map(([c, n]) => `${c.title} → ${renumberTitle(c.title, n)}`).join(', ') + (off.length > 2 ? ' …' : '');
+  if (await confirmBox(t('work.renumberAsk', { sample }), { ok: t('work.renumber') })) {
+    for (const [c, n] of off) { c.title = renumberTitle(c.title, n); put('chapters', c, { touch: false }); }
     refresh();
-    toast(`${off.length}개 화의 번호를 고쳤어요.`);
+    toast(t('work.renumbered', { n: off.length }));
   }
 }
 
 function partMenu(c) {
   actions([
-    { label: '부 이름 바꾸기', run: async () => {
-      const t = await ask('부 이름', { value: c.part });
-      if (t) { c.part = t; put('chapters', c, { touch: false }); refresh(); }
+    { label: t('work.partRename'), run: async () => {
+      const name = await ask(t('work.partName'), { value: c.part });
+      if (name) { c.part = name; put('chapters', c, { touch: false }); refresh(); }
     } },
-    { label: '부 묶음 풀기', run: () => { delete c.part; setFolded(c.id, false); put('chapters', c, { touch: false }); refresh(); } },
+    { label: t('work.partUngroup'), run: () => { delete c.part; setFolded(c.id, false); put('chapters', c, { touch: false }); refresh(); } },
   ], c.part);
 }
 
 function chapterMenu(c, i, list) {
   actions([
-    { label: '제목 바꾸기', run: async () => {
-      const t = await ask('화 제목', { value: c.title });
-      if (t) { c.title = t; put('chapters', c); refresh(); }
+    { label: t('lib.renameTitle'), run: async () => {
+      const title = await ask(t('work.chapterTitle'), { value: c.title });
+      if (title) { c.title = title; put('chapters', c); refresh(); }
     } },
-    { label: '연재용으로 복사', run: () => serialCopy(c) },
-    { label: '이 화만 텍스트로 내보내기', run: () => exportChapter(db.works.get(c.workId), c) },
-    c.part ? null : { label: '여기서 새 부 시작', run: async () => {
+    { label: t('work.serialCopy'), run: () => serialCopy(c) },
+    { label: t('work.exportChapter'), run: () => exportChapter(db.works.get(c.workId), c) },
+    c.part ? null : { label: t('work.newPart'), run: async () => {
       const n = list.slice(0, i + 1).filter((x) => x.part).length + (list[0].part ? 1 : 2);
-      const t = await ask('새 부 이름', { value: `${n}부`, placeholder: '예: 2부 · 봄' });
-      if (t) { c.part = t; put('chapters', c, { touch: false }); refresh(); }
+      const name = await ask(t('work.newPartName'), { value: t('unit.part', { n }), placeholder: t('work.newPartPh') });
+      if (name) { c.part = name; put('chapters', c, { touch: false }); refresh(); }
     } },
-    { label: '삭제', danger: true, run: () => {
+    { label: t('common.delete'), danger: true, run: () => {
       del('chapters', c.id);
       refresh();
-      toast(`‘${c.title}’${josa(c.title, '을', '를')} 지웠어요.`, {
-        action: '되돌리기', duration: 6000,
+      toast(t('work.chapterDeleted', { title: c.title }), {
+        action: t('common.undo'), duration: 6000,
         onAction: () => { put('chapters', c, { touch: false }); refresh(); },
       });
     } },
@@ -225,32 +226,32 @@ function chapterMenu(c, i, list) {
 export function loreScreen({ wid }) {
   const w = db.works.get(wid);
   if (!w) { go('/', { replace: true }); return null; }
-  const rows = h('div', { class: 'list' }, typesOf(wid).map((t) => {
-    const items = entriesOf(wid, t.key).filter((e) => e.name.trim());
-    const preview = items.slice(0, 3).map((e) => e.name).join(', ') + (items.length > 3 ? ` 외 ${items.length - 3}` : '');
+  const rows = h('div', { class: 'list' }, typesOf(wid).map((ty) => {
+    const items = entriesOf(wid, ty.key).filter((e) => e.name.trim());
+    const preview = items.slice(0, 3).map((e) => e.name).join(', ') + (items.length > 3 ? t('work.more', { n: items.length - 3 }) : '');
     return h('div', { class: 'row' },
-      h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/lore/${t.key}`) },
-        icon(t.icon, 'type-ic'),
+      h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/lore/${ty.key}`) },
+        icon(ty.icon, 'type-ic'),
         h('div', null,
-          h('div', { class: 'row-title' }, t.label, items.length ? h('span', { class: 'count' }, items.length) : null),
+          h('div', { class: 'row-title' }, ty.label, items.length ? h('span', { class: 'count' }, items.length) : null),
           preview ? h('div', { class: 'row-sub' }, preview) : null)),
       icon('chev', 'chev'));
   }));
   // 분류가 모자라면 직접 만든다 (예: 종족, 마법, 사건)
   const addType = async () => {
-    const label = await ask('새 분류', { placeholder: '예: 종족, 마법, 사건', ok: '다음' });
+    const label = await ask(t('work.newType'), { placeholder: t('work.newTypePh'), ok: t('work.next') });
     if (!label) return;
-    const ic = await pickIcon(null, { title: `‘${label}’ 아이콘 고르기`, defaultLabel: '나중에 고를게요' });
-    const t = createType(wid, label, ic || 'note');
-    toast(`‘${label}’ 분류를 만들었어요.`);
-    go(`/w/${wid}/lore/${t.key}`);
+    const ic = await pickIcon(null, { title: t('work.typeIconTitle', { label }), defaultLabel: t('work.later') });
+    const ty = createType(wid, label, ic || 'note');
+    toast(t('work.typeCreated', { label }));
+    go(`/w/${wid}/lore/${ty.key}`);
   };
   const nRel = [...db.relations.values()].filter((r) => r.workId === wid).length;
   const graphRow = nRel ? h('div', { class: 'list graph-entry' }, h('div', { class: 'row' },
     h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/graph`) },
       icon('people', 'type-ic'),
-      h('div', null, h('div', { class: 'row-title' }, '관계도', h('span', { class: 'count' }, nRel)), h('div', { class: 'row-sub' }, '캐릭터끼리의 관계를 한눈에'))),
+      h('div', null, h('div', { class: 'row-title' }, t('work.graph'), h('span', { class: 'count' }, nRel)), h('div', { class: 'row-sub' }, t('work.graphSub')))),
     icon('chev', 'chev'))) : null;
   return shell(w, 'lore', [atBanner(wid), graphRow, rows,
-    h('button', { class: 'add-type', onclick: addType }, icon('plus'), '새 분류 만들기')]);
+    h('button', { class: 'add-type', onclick: addType }, icon('plus'), t('work.addType'))]);
 }

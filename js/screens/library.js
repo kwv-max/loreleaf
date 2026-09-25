@@ -3,15 +3,16 @@ import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast
 import { db, worksSorted, chaptersOf, createWork, deleteWork, put, planImport, applyImport } from '../store.js';
 import { go } from '../router.js';
 import { emit } from '../guide.js';
-import { manuscriptText, lengthOf } from '../quotes.js';
+import { manuscriptText, countOf, wordsOf } from '../quotes.js';
 import { saveBackup, lastBackup, canOverwrite } from '../backup.js';
 import { snapshot } from '../versions.js';
 import { newVersion, showUpdate } from '../update.js';
 import { todayCount } from '../today.js';
 import { pref, setPref } from '../prefs.js';
+import { t, lang } from '../i18n.js';
 
 export async function newWork() {
-  const title = await ask('새 작품', { placeholder: '작품 제목', ok: '만들기' });
+  const title = await ask(t('lib.newWork'), { placeholder: t('lib.workTitle'), ok: t('lib.create') });
   if (!title) return;
   const w = createWork(title);
   emit('work-created', w.id);
@@ -20,19 +21,19 @@ export async function newWork() {
 
 export function workMenu(w, { onDeleted } = {}) {
   actions([
-    { label: '제목 바꾸기', run: async () => {
-      const t = await ask('작품 제목', { value: w.title });
-      if (t) { w.title = t; put('works', w); go(location.hash.slice(1), { replace: true }); }
+    { label: t('lib.renameTitle'), run: async () => {
+      const title = await ask(t('lib.workTitle'), { value: w.title });
+      if (title) { w.title = title; put('works', w); go(location.hash.slice(1), { replace: true }); }
     } },
-    { label: '원고를 텍스트 파일로 내보내기', run: () => exportText(w) },
-    { label: '작품 삭제', danger: true, run: async () => {
-      const ok = await confirmBox(`‘${w.title}’${josa(w.title, '을', '를')} 지울까요? 원고와 설정이 모두 사라져요.`, { ok: '삭제', danger: true });
+    { label: t('lib.exportText'), run: () => exportText(w) },
+    { label: t('lib.deleteWork'), danger: true, run: async () => {
+      const ok = await confirmBox(t('lib.deleteConfirm', { title: w.title }), { ok: t('common.delete'), danger: true });
       if (!ok) return;
       const restore = deleteWork(w.id);
       onDeleted?.();
-      toast('작품을 지웠어요.', {
-        action: '되돌리기', duration: 10000,
-        onAction: () => { restore(); go('/', { replace: true }); toast('작품을 되살렸어요.'); },
+      toast(t('lib.deleted'), {
+        action: t('common.undo'), duration: 10000,
+        onAction: () => { restore(); go('/', { replace: true }); toast(t('lib.restored')); },
       });
     } },
   ], w.title);
@@ -68,8 +69,8 @@ export function serialCopy(c) {
   const opts = { gap: pref('serialGap'), title: pref('serialTitle') };
   const info = h('p', { class: 'muted small' });
   const drawInfo = () => {
-    const t = serialText(c, opts);
-    info.textContent = `공백 포함 ${num(t.length)}자 · 공백 제외 ${num(t.replace(/\s/g, '').length)}자`;
+    const text = serialText(c, opts);
+    info.textContent = t('unit.charsBoth', { all: num(text.length), noSpace: num(text.replace(/\s/g, '').length), words: num(wordsOf(text)) });
   };
   const toggle = (key, label, sub) => {
     const b = h('button', { class: 'toggle-row', type: 'button', role: 'switch' },
@@ -82,19 +83,19 @@ export function serialCopy(c) {
   };
   drawInfo();
   const s = sheet(h('div', { class: 'serial-sheet' },
-    toggle('gap', '문단 사이에 빈 줄', '줄바꿈 하나를 무시하는 사이트에 좋아요'),
-    toggle('title', '제목 넣기', `맨 위에 ‘${c.title}’`),
+    toggle('gap', t('serial.gap'), t('serial.gapSub')),
+    toggle('title', t('serial.title'), t('serial.titleSub', { title: c.title })),
     info,
     h('button', {
       class: 'btn primary',
       onclick: async () => {
         const ok = await copyText(serialText(c, opts));
         s.close();
-        toast(ok ? '복사했어요. 연재 사이트에 붙여 넣으면 돼요.' : '복사하지 못했어요. 텍스트로 내보내기를 써 주세요.');
+        toast(ok ? t('serial.copied') : t('serial.copyFailed'));
       },
-    }, '복사하기'),
-    h('p', { class: 'muted small' }, '주석은 빠지고, 대사 줄에는 환경 설정의 따옴표가 붙어요.')),
-  { title: `${c.title} · 연재용 복사` });
+    }, t('serial.copy')),
+    h('p', { class: 'muted small' }, t('serial.note'))),
+  { title: t('serial.sheetTitle', { title: c.title }) });
 }
 
 export function exportText(w) {
@@ -109,30 +110,30 @@ function backupItems() {
   const run = (pickNew) => async () => {
     try {
       const name = await saveBackup({ pickNew });
-      if (name) toast(canOverwrite() ? `‘${name}’에 백업했어요.` : `‘${name}’로 내려받았어요.`);
-    } catch (e) { toast(e.message || '백업하지 못했어요.'); }
+      if (name) toast(canOverwrite() ? t('backup.savedTo', { name }) : t('backup.downloaded', { name }));
+    } catch (e) { toast(e.message || t('backup.failed')); }
   };
-  if (!canOverwrite() || !last) return [{ label: '백업 파일 저장', run: run(false) }];
+  if (!canOverwrite() || !last) return [{ label: t('backup.save'), run: run(false) }];
   return [
-    { label: `백업 저장 · ${last.name} (${relTime(last.at)})`, run: run(false) },
-    { label: '다른 파일에 백업', run: run(true) },
+    { label: t('backup.saveTo', { name: last.name, when: relTime(last.at) }), run: run(false) },
+    { label: t('backup.saveOther'), run: run(true) },
   ];
 }
 
 function appMenu() {
   actions([
-    { label: '환경 설정', run: () => go('/prefs') },
-    { label: '도움말', run: () => go('/help') },
+    { label: t('lib.prefs'), run: () => go('/prefs') },
+    { label: t('lib.help'), run: () => go('/help') },
     ...backupItems(),
-    { label: '백업 파일 불러오기', run: () => {
+    { label: t('backup.load'), run: () => {
       const input = h('input', { type: 'file', accept: '.json,application/json' });
       input.onchange = async () => {
         let plan;
         try {
           let o;
-          try { o = JSON.parse(await input.files[0].text()); } catch { throw new Error('백업 파일을 읽지 못했어요. 갈피에서 저장한 .json 파일인지 확인해 주세요.'); }
+          try { o = JSON.parse(await input.files[0].text()); } catch { throw new Error(t('backup.unreadable')); }
           plan = planImport(o);
-        } catch (e) { toast(e.message || '불러오지 못했어요.', { duration: 6000 }); return; }
+        } catch (e) { toast(e.message || t('backup.loadFailed'), { duration: 6000 }); return; }
         importSheet(plan);
       };
       input.click();
@@ -148,37 +149,37 @@ export function libraryScreen() {
     const c = db.chapters.get(recent.lastChapterId);
     const tail = c.text.trim().slice(-80).replace(/\s+/g, ' ');
     return h('button', { class: 'resume', onclick: () => go(`/w/${recent.id}/c/${c.id}`) },
-      h('div', { class: 'resume-label' }, '이어 쓰기'),
+      h('div', { class: 'resume-label' }, t('lib.resume')),
       h('div', { class: 'resume-title' }, recent.title, h('span', { class: 'muted' }, ' · ' + c.title)),
-      tail ? h('div', { class: 'resume-tail' }, '…' + tail) : h('div', { class: 'resume-tail muted' }, '아직 비어 있어요'));
+      tail ? h('div', { class: 'resume-tail' }, '…' + tail) : h('div', { class: 'resume-tail muted' }, t('lib.emptyChapter')));
   })();
 
   const list = works.length
     ? h('div', { class: 'list' }, works.map((w) => {
       const chs = chaptersOf(w.id);
-      const chars = chs.reduce((n, c) => n + lengthOf(c), 0);
+      const chars = chs.reduce((n, c) => n + countOf(c), 0);
       return h('div', { class: 'row' },
         h('button', { class: 'row-main', onclick: () => go('/w/' + w.id) },
-          h('div', { class: 'row-title' }, w.title, w.sample ? h('span', { class: 'badge' }, '샘플') : null),
-          h('div', { class: 'row-sub' }, `${chs.length}화 · ${num(chars)}자 · ${relTime(w.updatedAt)}`)),
-        iconBtn('more', '작품 메뉴', () => workMenu(w, { onDeleted: () => go('/', { replace: true }) })));
+          h('div', { class: 'row-title' }, w.title, w.sample ? h('span', { class: 'badge' }, t('lib.sample')) : null),
+          h('div', { class: 'row-sub' }, `${t('unit.chapters', { n: chs.length })} · ${t('unit.chars', { n: num(chars) })} · ${relTime(w.updatedAt)}`)),
+        iconBtn('more', t('lib.workMenu'), () => workMenu(w, { onDeleted: () => go('/', { replace: true }) })));
     }))
     : h('div', { class: 'empty' },
       icon('leaf', 'big'),
-      h('p', null, '아직 작품이 없어요.'),
-      h('p', { class: 'muted' }, '제목 하나면 바로 시작할 수 있어요.'));
+      h('p', null, t('lib.none')),
+      h('p', { class: 'muted' }, t('lib.noneSub')));
 
   return h('div', { class: 'screen' },
-    topbar({ title: '갈피', right: [iconBtn('help', '도움말', () => go('/help')), iconBtn('more', '메뉴', appMenu)] }),
+    topbar({ title: t('app.name'), right: [iconBtn('help', t('lib.help'), () => go('/help')), iconBtn('more', t('common.menu'), appMenu)] }),
     h('main', { class: 'content' },
       updateTip(),
       backupTip(),
       iosInstallTip(),
       resume,
       todayLine(),
-      works.length ? h('h2', { class: 'section' }, '작품') : null,
+      works.length ? h('h2', { class: 'section' }, t('lib.works')) : null,
       list),
-    h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), '새 작품')));
+    h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), t('lib.newWork'))));
 }
 
 // 아이폰 사파리에서는 설치 버튼이 따로 뜨지 않는다. 홈 화면에 추가하는 법을 한 번 알려 준다.
@@ -190,9 +191,9 @@ function iosInstallTip() {
   if (!ios || navigator.standalone || seen) return null;
   const el = h('div', { class: 'ios-tip' },
     h('div', null,
-      h('b', null, '홈 화면에 추가해 주세요'),
-      h('p', null, '아래 공유 버튼 → ‘홈 화면에 추가’를 누르면 앱처럼 열려요. 사파리에서만 쓰면, 오래 안 열었을 때 글이 지워질 수 있어요.')),
-    h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: () => { try { localStorage.setItem('ll:ios-tip', '1'); } catch {} el.remove(); } }, icon('close')));
+      h('b', null, t('ios.title')),
+      h('p', null, t('ios.body'))),
+    h('button', { class: 'icon-btn sm', 'aria-label': t('common.close'), onclick: () => { try { localStorage.setItem('ll:ios-tip', '1'); } catch {} el.remove(); } }, icon('close')));
   return el;
 }
 
@@ -202,9 +203,9 @@ function updateTip() {
   if (!v) return null;
   return h('button', { class: 'update-tip', onclick: showUpdate },
     h('div', null,
-      h('b', null, '새 버전이 있어요'),
-      v.notes?.[0] ? h('p', null, v.notes[0] + (v.notes.length > 1 ? ` 외 ${v.notes.length - 1}가지` : '')) : null),
-    h('span', { class: 'update-go' }, '업데이트'));
+      h('b', null, t('update.tipTitle')),
+      v.notes?.[0] ? h('p', null, v.notes[0] + (v.notes.length > 1 ? t('update.tipMore', { n: v.notes.length - 1 }) : '')) : null),
+    h('span', { class: 'update-go' }, t('update.go')));
 }
 
 // 백업 알림: 마지막 백업 뒤로 글이 바뀌었고 7일이 지났을 때 (한 번도 안 했으면 글이 좀 쌓였을 때만).
@@ -229,21 +230,21 @@ function backupTip() {
   const el = h('div', { class: 'backup-tip' },
     icon('note', 'type-ic'),
     h('div', null,
-      h('b', null, last ? `마지막 백업 ${days}일 전` : '아직 백업한 적이 없어요'),
-      h('p', null, '글은 이 기기에만 있어요. 가끔 파일로 남겨 두면 안심이에요.')),
+      h('b', null, last ? t('backup.tipDays', { days }) : t('backup.tipNever')),
+      h('p', null, t('backup.tipBody'))),
     h('button', {
       class: 'update-go',
       onclick: async () => {
         try {
           const name = await saveBackup();
           if (!name) return;
-          toast(canOverwrite() ? `‘${name}’에 백업했어요.` : `‘${name}’로 내려받았어요.`);
+          toast(canOverwrite() ? t('backup.savedTo', { name }) : t('backup.downloaded', { name }));
           el.remove();
-        } catch (e) { toast(e.message || '백업하지 못했어요.'); }
+        } catch (e) { toast(e.message || t('backup.failed')); }
       },
-    }, '지금 백업'),
+    }, t('backup.now')),
     h('button', {
-      class: 'icon-btn sm', 'aria-label': '사흘 동안 숨기기',
+      class: 'icon-btn sm', 'aria-label': t('backup.snooze'),
       onclick: () => { try { localStorage.setItem('ll:backup-snooze', String(Date.now() + 3 * DAY)); } catch {} el.remove(); },
     }, icon('close')));
   return el;
@@ -257,8 +258,8 @@ function todayLine() {
   const done = goal && n >= goal;
   return h('div', { class: 'today' + (done ? ' done' : '') },
     h('div', { class: 'today-text' },
-      goal ? h('span', null, done ? '오늘 목표를 채웠어요' : '오늘', ' ', h('b', null, num(n)), ` / ${num(goal)}자`)
-        : h('span', null, '오늘 ', h('b', null, num(n)), '자 썼어요')),
+      goal ? h('span', null, done ? t('today.goalDone') : t('today.label'), ' ', h('b', null, num(n)), t('today.ofGoal', { goal: num(goal) }))
+        : h('span', null, ...t('today.wrote', { n: h('b', null, num(n)) }))),
     goal ? h('div', { class: 'today-bar' }, h('span', { style: `width:${Math.min(100, (n / goal) * 100)}%` })) : null);
 }
 
@@ -270,22 +271,22 @@ export function importSheet(plan) {
     s.close();
     const done = await applyImport(plan, mode, (c) => snapshot(c));
     go('/', { replace: true });
-    toast(done ? `백업에서 ${done}개를 들였어요.` : '바뀐 게 없어요.');
+    toast(done ? t('import.done', { n: done }) : t('import.noChange'));
   };
   const nothing = !n.new && !n.newer && !n.older;
   const s = sheet(h('div', { class: 'import-sheet' },
-    h('p', null, h('b', null, `작품 ${plan.works.length}개`), plan.works.length ? ` · ${plan.works.slice(0, 3).join(', ')}${plan.works.length > 3 ? ' 외' : ''}` : ''),
-    when ? h('p', { class: 'muted small' }, `${when.getFullYear()}년 ${when.getMonth() + 1}월 ${when.getDate()}일에 만든 백업`) : null,
+    h('p', null, h('b', null, t('import.works', { n: plan.works.length })), plan.works.length ? ` · ${plan.works.slice(0, 3).join(', ')}${plan.works.length > 3 ? t('import.more') : ''}` : ''),
+    when ? h('p', { class: 'muted small' }, t('import.madeOn', { date: new Intl.DateTimeFormat(lang(), { dateStyle: 'long' }).format(when) })) : null,
     h('ul', { class: 'import-counts' },
-      h('li', null, '이 기기에 없는 것 ', h('b', null, n.new)),
-      h('li', null, '백업 쪽이 더 새로운 것 ', h('b', null, n.newer)),
-      h('li', null, '이 기기 쪽이 더 새로운 것 ', h('b', null, n.older)),
-      h('li', null, '똑같은 것 ', h('b', null, n.same))),
-    nothing ? h('p', { class: 'muted' }, '이 기기에 이미 다 들어 있어요.') : [
-      h('button', { class: 'btn primary', onclick: () => run('merge') }, '합치기 (추천)'),
-      h('p', { class: 'muted small' }, '없는 것과 더 새로운 것만 들여요. 이 기기에서 더 최근에 고친 글은 그대로 지켜요.'),
-      n.older ? h('button', { class: 'btn ghost danger-text', onclick: () => run('replace') }, '백업 그대로 되돌리기') : null,
-      n.older ? h('p', { class: 'muted small' }, `이 기기에서 더 최근에 고친 ${n.older}개도 백업 때로 돌아가요. 지금 글은 화마다 ‘이전 버전’에 남아요.`) : null,
+      h('li', null, t('import.new'), h('b', null, n.new)),
+      h('li', null, t('import.newer'), h('b', null, n.newer)),
+      h('li', null, t('import.older'), h('b', null, n.older)),
+      h('li', null, t('import.same'), h('b', null, n.same))),
+    nothing ? h('p', { class: 'muted' }, t('import.nothing')) : [
+      h('button', { class: 'btn primary', onclick: () => run('merge') }, t('import.merge')),
+      h('p', { class: 'muted small' }, t('import.mergeNote')),
+      n.older ? h('button', { class: 'btn ghost danger-text', onclick: () => run('replace') }, t('import.replace')) : null,
+      n.older ? h('p', { class: 'muted small' }, t('import.replaceNote', { n: n.older })) : null,
     ]),
-  { title: '백업 불러오기' });
+  { title: t('import.title') });
 }

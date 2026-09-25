@@ -1,6 +1,7 @@
 import { h, icon, toast } from './ui.js';
 import { initStore, db, uid, setWriteErrorHandler } from './store.js';
 import { saveBackup } from './backup.js';
+import { t } from './i18n.js';
 import { route, render, onRender, go, seedHistory, path } from './router.js';
 import { decorate, startGuide } from './guide.js';
 import { insertSample } from './sample.js';
@@ -40,13 +41,13 @@ function welcome() {
   const el = h('div', { class: 'welcome' },
     h('div', { class: 'welcome-inner' },
       icon('leaf', 'welcome-leaf'),
-      h('h1', null, '갈피'),
-      h('p', { class: 'welcome-lead' }, '쓰는 건 당신이, 기억하는 건 갈피가.'),
-      h('p', { class: 'muted' }, '등장인물을 등록해 두면, 본문에 이름이 나올 때마다 알아서 표시하고 설정을 바로 보여줘요.'),
+      h('h1', null, t('app.name')),
+      h('p', { class: 'welcome-lead' }, t('welcome.lead')),
+      h('p', { class: 'muted' }, t('welcome.body')),
       h('div', { class: 'welcome-actions' },
-        h('button', { class: 'btn primary', onclick: () => { close(); startGuide(); go('/', { replace: true }); } }, '1분 만에 해보기'),
-        sampleId ? h('button', { class: 'btn ghost', onclick: () => { close(); go('/w/' + sampleId); } }, '샘플 작품 구경하기') : null,
-        h('button', { class: 'link-btn center', onclick: close }, '바로 시작할게요'))));
+        h('button', { class: 'btn primary', onclick: () => { close(); startGuide(); go('/', { replace: true }); } }, t('welcome.try')),
+        sampleId ? h('button', { class: 'btn ghost', onclick: () => { close(); go('/w/' + sampleId); } }, t('welcome.sample')) : null,
+        h('button', { class: 'link-btn center', onclick: close }, t('welcome.skip')))));
   document.body.append(el);
 }
 
@@ -55,9 +56,9 @@ let lastWriteError = 0;
 setWriteErrorHandler(() => {
   if (Date.now() - lastWriteError < 20000) return;
   lastWriteError = Date.now();
-  toast('저장하지 못했어요. 저장 공간이 부족할 수 있어요. 지금 백업해 두세요.', {
-    action: '백업', duration: 12000,
-    onAction: () => saveBackup().then((n) => n && toast(`‘${n}’에 백업했어요.`)).catch(() => toast('백업하지 못했어요.')),
+  toast(t('app.writeFailed'), {
+    action: t('app.backupAction'), duration: 12000,
+    onAction: () => saveBackup().then((n) => n && toast(t('backup.savedTo', { name: n }))).catch(() => toast(t('backup.failed'))),
   });
 });
 
@@ -86,9 +87,9 @@ function guardSingleWindow() {
     const el = h('div', { class: 'paused' },
       h('div', { class: 'paused-inner' },
         icon('leaf', 'welcome-leaf'),
-        h('h2', null, '다른 곳에서 갈피를 열었어요'),
-        h('p', { class: 'muted' }, '같은 글을 두 곳에서 고치면 한쪽이 덮어써질 수 있어서, 이 창은 쉬고 있어요. 쓰던 글은 저장했어요.'),
-        h('button', { class: 'btn primary', onclick: () => location.reload() }, '여기서 계속 쓰기')));
+        h('h2', null, t('app.pausedTitle')),
+        h('p', { class: 'muted' }, t('app.pausedBody')),
+        h('button', { class: 'btn primary', onclick: () => location.reload() }, t('app.pausedResume'))));
     document.body.append(el);
   };
   ch.postMessage({ t: 'hello', me });
@@ -98,7 +99,7 @@ function guardSingleWindow() {
 async function boot() {
   await guardSingleWindow(); // 다른 창이 쓰던 걸 저장한 뒤에 읽는다
   const ok = await initStore({
-    blocked: () => toast('다른 창에 열려 있는 갈피를 닫아 주세요. 새 버전으로 바꾸는 중이에요.', { duration: 60000 }),
+    blocked: () => toast(t('app.blocked'), { duration: 60000 }),
   });
   let first = false;
   try { first = !localStorage.getItem('ll:welcomed'); } catch {}
@@ -114,7 +115,7 @@ async function boot() {
   onUpdate(() => { if (path() === '/') render(); });
   render();
   if (first) welcome();
-  if (!ok) toast('이 브라우저에서는 저장이 되지 않을 수 있어요. (사생활 보호 모드?)', { duration: 6000 });
+  if (!ok) toast(t('app.noStorage'), { duration: 6000 });
 
   // 브라우저가 공간이 모자랄 때 글을 지우지 않도록 (특히 아이폰 사파리)
   navigator.storage?.persist?.().catch(() => {});

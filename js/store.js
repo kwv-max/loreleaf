@@ -1,16 +1,17 @@
 // 데이터 저장소: 전부 메모리에 올려두고, 바뀐 레코드만 IndexedDB에 기록한다.
 import { migrateChapter } from './quotes.js';
+import { t as tr, chapterTitle } from './i18n.js';
 const STORES = ['works', 'chapters', 'entries', 'folders', 'relations'];
 export const db = { works: new Map(), chapters: new Map(), entries: new Map(), folders: new Map(), relations: new Map() };
 let idb = null;
 
 export const TYPES = [
-  { key: 'character', label: '캐릭터', icon: 'person', fields: ['나이', '현재 위치', '소속', '외모', '성격', '가진 물건', '몸 상태', '알고 있는 정보'] },
-  { key: 'place', label: '장소', icon: 'pin', fields: ['위치', '분위기', '특징', '관련 인물'] },
-  { key: 'org', label: '조직', icon: 'flag', fields: ['우두머리', '본거지', '목적', '구성원'] },
-  { key: 'item', label: '아이템', icon: 'gem', fields: ['소유자', '능력', '생김새', '유래'] },
-  { key: 'world', label: '세계관', icon: 'globe', fields: ['요약', '규칙', '예외'] },
-  { key: 'memo', label: '기타 메모', icon: 'note', fields: [] },
+  { key: 'character', label: tr('type.character'), icon: 'person', fields: [tr('field.age'), tr('field.where'), tr('field.aff'), tr('field.look'), tr('field.pers'), tr('field.belong'), tr('field.cond'), tr('field.knows')] },
+  { key: 'place', label: tr('type.place'), icon: 'pin', fields: [tr('field.loc'), tr('field.mood'), tr('field.feat'), tr('field.related')] },
+  { key: 'org', label: tr('type.org'), icon: 'flag', fields: [tr('field.leader'), tr('field.base'), tr('field.goal'), tr('field.members')] },
+  { key: 'item', label: tr('type.item'), icon: 'gem', fields: [tr('field.owner'), tr('field.power'), tr('field.shape'), tr('field.origin')] },
+  { key: 'world', label: tr('type.world'), icon: 'globe', fields: [tr('field.summary'), tr('field.rules'), tr('field.except')] },
+  { key: 'memo', label: tr('type.memo'), icon: 'note', fields: [] },
 ];
 // 작품마다 분류를 더 만들 수 있고, 아이콘도 바꿀 수 있다.
 //   work.types = [{ key, label, icon, fields: [] }]  직접 만든 분류
@@ -24,7 +25,7 @@ export function typeOf(key, wid) {
       if (t) { wid ??= w.id; break; }
     }
   }
-  if (!t) return { key, label: '분류 없음', icon: 'note', fields: [] };
+  if (!t) return { key, label: tr('type.none'), icon: 'note', fields: [] };
   const ic = wid && db.works.get(wid)?.icons?.[key];
   return ic ? { ...t, icon: ic } : t;
 }
@@ -193,7 +194,7 @@ export function createWork(title) {
 export function createChapter(wid) {
   const list = chaptersOf(wid);
   const order = list.length ? Math.max(...list.map((c) => c.order)) + 1 : 1;
-  const c = { id: uid(), workId: wid, title: `${list.length + 1}화`, order, text: '', quotes: {}, createdAt: Date.now() };
+  const c = { id: uid(), workId: wid, title: chapterTitle(list.length + 1), order, text: '', quotes: {}, createdAt: Date.now() };
   put('chapters', c);
   return c;
 }
@@ -287,16 +288,16 @@ export function exportAll() {
 // 백업을 들이기 전에: 모양을 확인하고, 이 기기와 비교해 무엇이 어떻게 바뀌는지 셈한다.
 //   plan.items = [{ store, x(백업 것), local(이 기기 것 | undefined), kind: 'new' | 'newer' | 'older' | 'same' }]
 export function planImport(o) {
-  if (!o || o.app !== 'loreleaf') throw new Error('갈피 백업 파일이 아니에요.');
-  const bad = (why) => { throw new Error(`백업 파일이 망가진 것 같아요. (${why})`); };
+  if (!o || o.app !== 'loreleaf') throw new Error(tr('store.notBackup'));
+  const bad = (why) => { throw new Error(tr('store.broken', { why })); };
   const items = [];
   for (const s of STORES) {
     if (o[s] == null) continue;
     if (!Array.isArray(o[s])) bad(s);
     for (const x of o[s]) {
-      if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id) bad(`${s}의 id`);
-      if (s === 'chapters' && (typeof x.text !== 'string' || typeof x.workId !== 'string')) bad('화 내용');
-      if (s === 'works' && typeof x.title !== 'string') bad('작품 제목');
+      if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !x.id) bad(tr('store.broken.id', { store: s }));
+      if (s === 'chapters' && (typeof x.text !== 'string' || typeof x.workId !== 'string')) bad(tr('store.broken.chapter'));
+      if (s === 'works' && typeof x.title !== 'string') bad(tr('store.broken.title'));
       if ((s === 'entries' || s === 'relations' || s === 'folders') && typeof x.workId !== 'string') bad(s);
       const local = db[s].get(x.id);
       const kind = !local ? 'new'

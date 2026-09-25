@@ -10,7 +10,7 @@ import { buildMatcher, highlightHTML, appearances, findAll, findHTML, notesHTML 
 import { go, back, interceptBack } from '../router.js';
 import { emit } from '../guide.js';
 import { lineSwipe } from '../swipe.js';
-import { quoteState, unquote, quoteChars, flagsOf, packFlags, remapFlags, wrapLine, manuscriptText, lengthOf } from '../quotes.js';
+import { quoteState, unquote, quoteChars, flagsOf, packFlags, remapFlags, wrapLine, manuscriptText, countOf, wordsOf } from '../quotes.js';
 import { pref } from '../prefs.js';
 import { setSearchQuery } from './search.js';
 import { diffRange, remapRange } from '../anchors.js';
@@ -18,6 +18,7 @@ import { orderOf, valueAt, changesIn, factSheet, setViewAt, linkOf, namedOfType,
 import { exportChapter, serialCopy } from './library.js';
 import { snapshot, versionsOf, whenLabel } from '../versions.js';
 import { noteOpen, noteSave, todayCount } from '../today.js';
+import { t as tr } from '../i18n.js';
 
 let jump = null; // 다른 화면에서 "이 위치로 가서 보여줘" 요청 (find가 있으면 찾기 막대도 연다)
 let enterFrom = null; // 화를 넘겨 들어올 때 밀려 들어오는 방향 ('left' | 'right')
@@ -45,11 +46,11 @@ export function editorScreen({ wid, cid }) {
   const peekR = h('span', { class: 'title-peek right', 'aria-hidden': 'true' });
   const top = h('header', { class: 'topbar ed-top' },
     h('div', { class: 'topbar-row' },
-      iconBtn('back', '뒤로', () => back('/w/' + wid)),
+      iconBtn('back', tr('common.back'), () => back('/w/' + wid)),
       h('div', { class: 'title-wrap' }, peekL, peekR, titleBtn),
       count,
-      iconBtn('search', '이 화에서 찾기', () => openFind(fb?.q || '')),
-      iconBtn('more', '더 보기', menu)));
+      iconBtn('search', tr('ed.findHere'), () => openFind(fb?.q || '')),
+      iconBtn('more', tr('ed.more'), menu)));
 
   // ---- 본문 ----
   const backdrop = h('div', { class: 'ed-backdrop', 'aria-hidden': 'true' });
@@ -57,9 +58,9 @@ export function editorScreen({ wid, cid }) {
   const notesLayer = h('div', { class: 'ed-notes', 'aria-hidden': 'true' });
   const ta = h('textarea', {
     class: 'ed-text',
-    placeholder: '여기에 쓰면 돼요. 저장은 알아서 돼요.',
+    placeholder: tr('ed.placeholder'),
     spellcheck: false, autocomplete: 'off', autocapitalize: 'off',
-    'aria-label': '본문',
+    'aria-label': tr('ed.body'),
   });
   ta.value = ch.text;
   const wrap = h('div', { class: 'ed-wrap' }, backdrop, findLayer, notesLayer, ta);
@@ -78,7 +79,7 @@ export function editorScreen({ wid, cid }) {
     if (!highlightSeen && backdrop.querySelector('mark')) { highlightSeen = true; emit('highlight-shown'); }
   }
   const currentChapter = () => ({ text: ta.value, quotes: packFlags(flags) });
-  const updateCount = debounce(() => { count.textContent = num(lengthOf(currentChapter())) + '자'; }, 300);
+  const updateCount = debounce(() => { count.textContent = tr('unit.chars', { n: num(countOf(currentChapter())) }); }, 300);
 
   // ---- 저장 ----
   let dirty = false;
@@ -163,13 +164,13 @@ export function editorScreen({ wid, cid }) {
 
   // ---- 키보드 위 막대: 터치 기기에서 입력 중일 때만 보인다 ----
   const hold = (b) => { b.addEventListener('pointerdown', (e) => e.preventDefault()); return b; }; // 눌러도 키보드가 내려가지 않게
-  const bUndo = hold(iconBtn('undo', '되돌리기', undo));
-  const bRedo = hold(iconBtn('redo', '다시 하기', redo));
+  const bUndo = hold(iconBtn('undo', tr('common.undo'), undo));
+  const bRedo = hold(iconBtn('redo', tr('ed.redo'), redo));
   const qBtn = (flag, word) => hold(h('button', { class: 'kb-q', onclick: () => toggleFlag(flag) },
     h('span', { class: 'kb-q-g' }), word));
-  const qD = qBtn('d', '대사');
-  const qS = qBtn('s', '생각');
-  const bar = h('div', { class: 'kb-bar', role: 'toolbar', 'aria-label': '글쓰기 도구' },
+  const qD = qBtn('d', tr('ed.dialogue'));
+  const qS = qBtn('s', tr('ed.thought'));
+  const bar = h('div', { class: 'kb-bar', role: 'toolbar', 'aria-label': tr('ed.tools') },
     bUndo, bRedo, h('span', { class: 'kb-sep' }), qD, qS);
   const coarse = matchMedia('(pointer: coarse)').matches;
   let barTimer = null;
@@ -219,7 +220,7 @@ export function editorScreen({ wid, cid }) {
     if (!bar.isConnected) showBar(); // focus 이벤트를 놓친 경우 대비
     updateBar();
     if (e.inputType === 'insertLineBreak' && matchMedia('(pointer: coarse)').matches) {
-      hintOnce('swipe', '팁: 줄을 오른쪽으로 밀면 대사, 왼쪽으로 밀면 생각이 돼요. 따옴표는 여백에 표시돼요.');
+      hintOnce('swipe', tr('ed.swipeTip'));
     }
   });
   const wake = () => document.body.classList.remove('typing');
@@ -239,7 +240,7 @@ export function editorScreen({ wid, cid }) {
   function applyFlag(i, next) {
     const line = lineText(i);
     const st = quoteState(line);
-    if (next && st === 'mixed') { toast('대사와 지문이 섞인 줄은 그대로 둘게요.'); return false; }
+    if (next && st === 'mixed') { toast(tr('ed.mixed')); return false; }
     if ((flags[i] || 0) === next && st !== 'quoted') return false;
     asOneStep(() => {
       if (st === 'quoted') {
@@ -258,7 +259,7 @@ export function editorScreen({ wid, cid }) {
   const toggleFlag = (flag) => { const i = curLine(); applyFlag(i, flags[i] === flag ? 0 : flag); };
   // 스와이프: 표시가 있으면 어느 쪽이든 풀고, 없으면 오른쪽 대사·왼쪽 생각
   function plan(i, dir) {
-    if (flags[i]) return { label: '풀기', ok: true };
+    if (flags[i]) return { label: tr('ed.unmark'), ok: true };
     if (quoteState(lineText(i)) === 'mixed') return { label: '—', ok: false };
     return { label: quoteChars(dir > 0 ? 'd' : 's').join(' '), ok: true };
   }
@@ -346,29 +347,29 @@ export function editorScreen({ wid, cid }) {
   let fb = null; // { box, input, count, all, q, hits, cur }
   function openFind(q = '', targetIndex = null) {
     if (!fb) {
-      const input = h('input', { class: 'find-input', type: 'search', placeholder: '이 화에서 찾기', enterkeyhint: 'search', 'aria-label': '이 화에서 찾기' });
+      const input = h('input', { class: 'find-input', type: 'search', placeholder: tr('ed.findHere'), enterkeyhint: 'search', 'aria-label': tr('ed.findHere') });
       const cnt = h('span', { class: 'find-count' });
       const all = h('button', {
         class: 'find-all',
         onclick: () => { setSearchQuery(fb.q); go(`/w/${wid}/search`); },
-      }, '작품 전체에서 찾기', icon('chev'));
+      }, tr('ed.findAll'), icon('chev'));
       // 바꾸기: 필요할 때만 펼친다
-      const rep = h('input', { class: 'find-input', type: 'text', placeholder: '바꿀 말', enterkeyhint: 'done', 'aria-label': '바꿀 말' });
+      const rep = h('input', { class: 'find-input', type: 'text', placeholder: tr('ed.replaceWith'), enterkeyhint: 'done', 'aria-label': tr('ed.replaceWith') });
       const repRow = h('div', { class: 'findbar replace-row', hidden: true },
         rep,
-        h('button', { class: 'rep-btn', onclick: () => replaceCur(rep.value) }, '바꾸기'),
-        h('button', { class: 'rep-btn', onclick: () => replaceAll(rep.value) }, '모두'));
+        h('button', { class: 'rep-btn', onclick: () => replaceCur(rep.value) }, tr('ed.replace')),
+        h('button', { class: 'rep-btn', onclick: () => replaceAll(rep.value) }, tr('ed.replaceAll')));
       rep.addEventListener('keydown', (e) => { if (!e.isComposing && e.key === 'Enter') { e.preventDefault(); replaceCur(rep.value); } });
       const repToggle = h('button', {
         class: 'find-all rep-toggle',
         onclick: () => { repRow.hidden = !repRow.hidden; repToggle.classList.toggle('on', !repRow.hidden); if (!repRow.hidden) setTimeout(() => rep.focus(), 30); },
-      }, '바꾸기');
+      }, tr('ed.replace'));
       const box = h('div', { class: 'findbox' },
         h('div', { class: 'findbar' },
           input, cnt,
-          iconBtn('up', '이전', () => step(-1)),
-          iconBtn('down', '다음', () => step(1)),
-          iconBtn('close', '찾기 닫기', closeFind)),
+          iconBtn('up', tr('ed.prev'), () => step(-1)),
+          iconBtn('down', tr('ed.next'), () => step(1)),
+          iconBtn('close', tr('ed.closeFind'), closeFind)),
         repRow,
         h('div', { class: 'find-links' }, repToggle, all));
       input.addEventListener('input', () => { fb.q = input.value; refreshFind(true); });
@@ -399,7 +400,7 @@ export function editorScreen({ wid, cid }) {
     const has = !!fb?.q.trim();
     findLayer.innerHTML = has ? findHTML(ta.value, fb.q, fb.cur) : '';
     if (!fb) return;
-    fb.count.textContent = !has ? '' : fb.hits.length ? `${fb.cur + 1}/${fb.hits.length}` : '없음';
+    fb.count.textContent = !has ? '' : fb.hits.length ? `${fb.cur + 1}/${fb.hits.length}` : tr('ed.none');
     fb.all.hidden = !has;
     fb.repToggle.hidden = !has;
   }
@@ -424,7 +425,7 @@ export function editorScreen({ wid, cid }) {
     const n = fb.hits.length;
     asOneStep(() => replaceAt(fb.hits.slice(), to));
     refreshFind(false);
-    toast(`${n}곳을 바꿨어요.`, { action: '되돌리기', onAction: () => { undo(); if (fb) refreshFind(false); } });
+    toast(tr('ed.replaced', { n }), { action: tr('common.undo'), onAction: () => { undo(); if (fb) refreshFind(false); } });
   }
   function step(d) {
     if (!fb?.hits.length) return;
@@ -560,13 +561,13 @@ export function editorScreen({ wid, cid }) {
       if (await factSheet(r, mine, { cid, title: `${c.name} → ${o.name}` })) openCard(c.id);
     };
     const relNode = rels.length ? h('div', { class: 'peek-rels' },
-      h('div', { class: 'peek-sub' }, '이 화의 관계'),
+      h('div', { class: 'peek-sub' }, tr('ed.relsHere')),
       h('dl', { class: 'peek-facts' }, rels.map((x) => [
         h('dt', { class: x.here ? 'changed' : null, onclick: () => openCard(x.o.id) },
           h('span', { class: 'dot', style: `--c:${x.o.color}` }), x.o.name,
-          x.here ? h('span', { class: 'new-dot', title: '이 화에서 바뀜', 'aria-label': '이 화에서 바뀜' }) : null),
+          x.here ? h('span', { class: 'new-dot', title: tr('ed.changedHere'), 'aria-label': tr('ed.changedHere') }) : null),
         h('dd', { onclick: () => editRel(x) },
-          x.m.value.trim() || h('span', { class: 'muted' }, `${x.o.name}${josa(x.o.name, '이', '가')} 보기엔: ${x.t.value.trim()}`)),
+          x.m.value.trim() || h('span', { class: 'muted' }, tr('rel.theySee', { name: x.o.name, text: x.t.value.trim() }))),
       ]))) : null;
     // 연결된 목록의 이름은 형광펜처럼, 누르면 그 설정 카드로
     const valueNode = (f, text) => {
@@ -576,32 +577,32 @@ export function editorScreen({ wid, cid }) {
         ? h('mark', { class: 'lk', style: `--c:${p.e.color || 'var(--accent)'}`, onclick: (ev) => { ev.stopPropagation(); openCard(p.e.id); } }, p.t)
         : p.t));
     };
-    card = h('div', { class: 'peek', style: `--c:${c.color || 'var(--accent)'}`, role: 'dialog', 'aria-label': c.name + ' 설정' },
+    card = h('div', { class: 'peek', style: `--c:${c.color || 'var(--accent)'}`, role: 'dialog', 'aria-label': tr('ed.settingsOf', { name: c.name }) },
       h('div', { class: 'peek-head' },
         isChar ? h('span', { class: 'dot' }) : icon(iconOf(c), 'type-ic'),
         h('div', { class: 'peek-name' },
           h('b', null, c.name),
           h('span', { class: 'peek-alias' }, isChar ? c.aliases.join(' · ') : t.label)),
-        h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: closeCard }, icon('close'))),
+        h('button', { class: 'icon-btn sm', 'aria-label': tr('common.close'), onclick: closeCard }, icon('close'))),
       facts.length
         ? h('dl', { class: 'peek-facts' }, facts.map(({ f, v, here, prev }) => {
           const since = v.rec && !here ? db.chapters.get(v.rec.chapterId)?.title : null;
           return [
             // 이 화에서 바뀐 항목은 이름 옆에 알림처럼 초록 점
             h('dt', { class: here ? 'changed' : null, onclick: () => editFact(f) }, f.label,
-              here ? h('span', { class: 'new-dot', title: '이 화에서 바뀜', 'aria-label': '이 화에서 바뀜' }) : null),
+              here ? h('span', { class: 'new-dot', title: tr('ed.changedHere'), 'aria-label': tr('ed.changedHere') }) : null),
             h('dd', { class: here ? 'changed' : null, onclick: () => editFact(f) },
-              here ? [h('span', { class: 'fact-prev' }, prev || '(없음)'), h('span', { class: 'fact-arrow' }, ' → ')] : null,
-              valueNode(f, v.value) || (here ? '(비움)' : ''),
-              since ? h('span', { class: 'fact-tag' }, `${since}부터`) : null),
+              here ? [h('span', { class: 'fact-prev' }, prev || tr('ed.nothing')), h('span', { class: 'fact-arrow' }, ' → ')] : null,
+              valueNode(f, v.value) || (here ? tr('entry.cleared') : ''),
+              since ? h('span', { class: 'fact-tag' }, tr('ed.from', { title: since })) : null),
           ];
         }))
-        : h('p', { class: 'peek-empty' }, '아직 적어둔 설정이 없어요.'),
+        : h('p', { class: 'peek-empty' }, tr('entry.noDetails')),
       relNode,
-      facts.length && firstTime('card-edit') ? h('p', { class: 'peek-hint' }, '값을 탭하면 바로 고치거나, 이 화부터 바뀐 것으로 기록할 수 있어요.') : null,
+      facts.length && firstTime('card-edit') ? h('p', { class: 'peek-hint' }, tr('ed.cardHint')) : null,
       h('div', { class: 'peek-foot' },
-        h('span', { class: 'muted' }, apps.length ? `${apps.length}개 화에 등장` : ''),
-        h('button', { class: 'link-btn', onclick: () => { setViewAt(wid, cid); go(`/w/${wid}/e/${c.id}`); } }, facts.length ? '전체 설정' : '설정 적기', icon('chev'))));
+        h('span', { class: 'muted' }, apps.length ? tr('ed.appearsIn', { n: apps.length }) : ''),
+        h('button', { class: 'link-btn', onclick: () => { setViewAt(wid, cid); go(`/w/${wid}/e/${c.id}`); } }, facts.length ? tr('ed.allDetails') : tr('ed.writeDetails'), icon('chev'))));
     card.addEventListener('pointerdown', (e) => { if (e.target.closest('button, mark') == null) e.preventDefault(); });
     showCard();
     releaseCard = interceptBack(closeCard);
@@ -623,16 +624,16 @@ export function editorScreen({ wid, cid }) {
     const chars = entryIds.map((id) => db.entries.get(id)).filter(Boolean);
     closeCard();
     wake();
-    card = h('div', { class: 'peek choice-card', role: 'dialog', 'aria-label': '무엇을 볼까요?' },
-      word && chars.length > 1 ? h('div', { class: 'choice-head' }, `‘${word}’${josa(word, '은', '는')} 여러 명이 쓰는 이름이에요`) : null,
+    card = h('div', { class: 'peek choice-card', role: 'dialog', 'aria-label': tr('ed.whichOne') },
+      word && chars.length > 1 ? h('div', { class: 'choice-head' }, tr('ed.sharedName', { word })) : null,
       n ? h('button', { class: 'choice-row', onclick: () => openNote(noteId) },
         icon('note', 'note-ic'),
-        h('span', { class: 'choice-text' }, h('b', null, '주석'), h('span', { class: 'muted' }, clip(n.text, 30))),
+        h('span', { class: 'choice-text' }, h('b', null, tr('ed.note')), h('span', { class: 'muted' }, clip(n.text, 30))),
         icon('chev', 'chev')) : null,
       chars.map((c) => h('button', { class: 'choice-row', style: `--c:${c.color}`, onclick: () => openCard(c.id) },
         h('span', { class: 'dot' }),
         h('span', { class: 'choice-text' }, h('b', null, c.name),
-          h('span', { class: 'muted' }, c.aliases.length ? c.aliases.join(' · ') : '캐릭터 설정')),
+          h('span', { class: 'muted' }, c.aliases.length ? c.aliases.join(' · ') : tr('ed.charSettings'))),
         icon('chev', 'chev'))));
     card.addEventListener('pointerdown', (e) => { if (e.target.closest('button') == null) e.preventDefault(); });
     showCard();
@@ -648,24 +649,24 @@ export function editorScreen({ wid, cid }) {
     closeCard();
     wake();
     const quoted = n.end > n.start ? clip(ta.value.slice(n.start, n.end), 30) : '';
-    card = h('div', { class: 'peek note-card', role: 'dialog', 'aria-label': '주석' },
+    card = h('div', { class: 'peek note-card', role: 'dialog', 'aria-label': tr('ed.note') },
       h('div', { class: 'peek-head' },
         icon('note', 'note-ic'),
         h('div', { class: 'peek-name' },
-          h('b', null, '주석'),
-          h('span', { class: 'peek-alias' }, quoted ? `‘${quoted}’` : '달려 있던 글이 지워졌어요')),
-        h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: closeCard }, icon('close'))),
+          h('b', null, tr('ed.note')),
+          h('span', { class: 'peek-alias' }, quoted ? `‘${quoted}’` : tr('ed.noteGone'))),
+        h('button', { class: 'icon-btn sm', 'aria-label': tr('common.close'), onclick: closeCard }, icon('close'))),
       h('p', { class: 'note-text' }, n.text),
       h('div', { class: 'peek-foot' },
-        h('button', { class: 'link-btn danger', onclick: () => removeNote(id) }, '지우기'),
-        h('button', { class: 'link-btn', onclick: () => editNote(id) }, '고치기', icon('chev'))));
+        h('button', { class: 'link-btn danger', onclick: () => removeNote(id) }, tr('ed.remove')),
+        h('button', { class: 'link-btn', onclick: () => editNote(id) }, tr('ed.edit'), icon('chev'))));
     card.addEventListener('pointerdown', (e) => { if (e.target.closest('button') == null) e.preventDefault(); });
     showCard();
     releaseCard = interceptBack(closeCard);
   }
   async function addNote(s, e) {
     hideChip();
-    const text = await askLong('주석 달기', { placeholder: '이 부분에 대한 메모', note: `‘${clip(ta.value.slice(s, e), 40)}’` });
+    const text = await askLong(tr('ed.addNote'), { placeholder: tr('ed.notePh'), note: `‘${clip(ta.value.slice(s, e), 40)}’` });
     if (!text) return;
     asOneStep(() => {
       notes.push({ id: uid(), start: s, end: e, text, createdAt: Date.now() });
@@ -674,13 +675,13 @@ export function editorScreen({ wid, cid }) {
       markDirty();
     });
     ta.setSelectionRange(e, e);
-    hintOnce('note', '밑줄을 탭하면 주석을 다시 볼 수 있어요. 원고로 내보낼 땐 빠져요.');
+    hintOnce('note', tr('ed.noteTip'));
   }
   async function editNote(id) {
     const n = notes.find((x) => x.id === id);
     if (!n) return;
     closeCard();
-    const text = await askLong('주석 고치기', { value: n.text });
+    const text = await askLong(tr('ed.editNote'), { value: n.text });
     if (text == null) return;
     if (!text) { removeNote(id); return; }
     asOneStep(() => {
@@ -697,19 +698,19 @@ export function editorScreen({ wid, cid }) {
       paint();
       markDirty();
     });
-    toast('주석을 지웠어요.', { action: '되돌리기', onAction: undo, duration: 5000 });
+    toast(tr('ed.noteDeleted'), { action: tr('common.undo'), onAction: undo, duration: 5000 });
   }
   function notesSheet() {
     const list = [...notes].sort((a, b) => a.start - b.start);
     actions(list.map((n) => ({
       label: h('span', { class: 'note-row' },
-        h('span', { class: 'muted small' }, n.end > n.start ? `‘${clip(ta.value.slice(n.start, n.end))}’` : '지워진 글'),
+        h('span', { class: 'muted small' }, n.end > n.start ? `‘${clip(ta.value.slice(n.start, n.end))}’` : tr('ed.deletedText')),
         h('span', null, n.text)),
       run: () => {
         notesLayer.querySelector(`[data-note="${n.id}"]`)?.scrollIntoView({ block: 'center' });
         openNote(n.id);
       },
-    })), `주석 ${list.length}개`);
+    })), tr('ed.notesTitle', { n: list.length }));
   }
 
   // ---- 설정 보기: 쓰던 화면을 벗어나지 않고 이 화 시점의 설정을 둘러본다 ----
@@ -731,7 +732,7 @@ export function editorScreen({ wid, cid }) {
     });
     const items = [];
     if (changed.size) {
-      items.push({ info: true, label: h('span', { class: 'set-head' }, `${ch.title}에서 바뀐 것`) });
+      items.push({ info: true, label: h('span', { class: 'set-head' }, tr('ed.changedIn', { title: ch.title })) });
       for (const t of typesOf(wid)) for (const [e, labels] of changed) if (e.type === t.key) items.push(row(e, labels.join(', '), t.label));
     }
     for (const t of typesOf(wid)) {
@@ -740,10 +741,10 @@ export function editorScreen({ wid, cid }) {
       items.push({ info: true, label: h('span', { class: 'set-head' }, t.label) });
       for (const e of list) items.push(row(e, e.type === 'character' ? e.aliases.join(', ') : ''));
     }
-    if (!items.length) items.push({ info: true, label: '아직 설정이 없어요. 본문의 이름을 길게 눌러 선택하면 캐릭터로 바로 등록할 수 있어요.' });
-    if ([...db.relations.values()].some((r) => r.workId === wid)) items.push({ label: '관계도 보기 ›', run: () => { setViewAt(wid, cid); go(`/w/${wid}/graph`); } });
-    items.push({ label: '설정 화면에서 크게 보기 ›', run: () => { setViewAt(wid, cid); go(`/w/${wid}/lore`); } });
-    actions(items, `설정 · ${ch.title} 시점`);
+    if (!items.length) items.push({ info: true, label: tr('ed.noSettings') });
+    if ([...db.relations.values()].some((r) => r.workId === wid)) items.push({ label: tr('ed.viewGraph'), run: () => { setViewAt(wid, cid); go(`/w/${wid}/graph`); } });
+    items.push({ label: tr('ed.viewLore'), run: () => { setViewAt(wid, cid); go(`/w/${wid}/lore`); } });
+    actions(items, tr('ed.settingsAt', { title: ch.title }));
   }
 
   // ---- 단어 선택 → 캐릭터로 등록 ----
@@ -760,8 +761,8 @@ export function editorScreen({ wid, cid }) {
     hideChip();
     const canChar = word.length <= 20 && !/\n/.test(word) && !matcher?.map.has(word);
     chip = h('div', { class: 'chip-row', 'data-key': key },
-      h('button', { class: 'chip-btn', onclick: () => addNote(s, e) }, icon('note'), '주석'),
-      canChar ? h('button', { class: 'chip-btn', onclick: () => register(word) }, icon('plus'), `‘${clip(word, 8)}’ 캐릭터로`) : null);
+      h('button', { class: 'chip-btn', onclick: () => addNote(s, e) }, icon('note'), tr('ed.note')),
+      canChar ? h('button', { class: 'chip-btn', onclick: () => register(word) }, icon('plus'), tr('ed.asCharacter', { word: clip(word, 8) })) : null);
     chip.addEventListener('pointerdown', (ev) => ev.preventDefault());
     document.body.append(chip);
   }
@@ -774,7 +775,7 @@ export function editorScreen({ wid, cid }) {
     matcher = buildMatcher(charactersOf(wid));
     paint();
     emit('character-created');
-    toast(`‘${word}’${josa(word, '을', '를')} 캐릭터로 등록했어요.`);
+    toast(tr('ed.registered', { word }));
     ta.setSelectionRange(ta.selectionEnd, ta.selectionEnd);
     openCard(c.id);
   }
@@ -785,18 +786,19 @@ export function editorScreen({ wid, cid }) {
     await snap(); // 지금 모습도 한 벌 (목록 맨 위 = 지금)
     const now = { text: ta.value, quotes: packFlags(flags) };
     const list = (await versionsOf(cid)).filter((v) => v.text !== now.text || JSON.stringify(v.quotes || {}) !== JSON.stringify(now.quotes));
-    const cur = lengthOf(now);
+    const cur = countOf(now);
     const items = list.map((v) => {
-      const d = v.len - cur;
+      const len = countOf(v);
+      const d = len - cur;
       return {
         label: h('span', { class: 'ver-row' },
           h('span', { class: 'ver-when' }, whenLabel(v.at)),
-          h('span', { class: 'muted small' }, `${num(v.len)}자`, d ? ` · 지금보다 ${d > 0 ? '+' : '−'}${num(Math.abs(d))}` : ' · 글자 수 같음')),
+          h('span', { class: 'muted small' }, tr('unit.chars', { n: num(len) }), d ? tr('ed.diff', { d: `${d > 0 ? '+' : '−'}${num(Math.abs(d))}` }) : tr('ed.sameLength'))),
         run: () => previewVersion(v),
       };
     });
-    if (!items.length) items.push({ info: true, label: '아직 이전 버전이 없어요. 쓰는 동안 알아서 모아 둘게요.' });
-    actions(items, `${ch.title} · 이전 버전`);
+    if (!items.length) items.push({ info: true, label: tr('ed.noVersions') });
+    actions(items, tr('ed.versionsOf', { title: ch.title }));
   }
 
   // 그 버전의 글. 지금 글에 없는 문단은 칠해서, 지워진 문단을 찾기 쉽게.
@@ -812,10 +814,10 @@ export function editorScreen({ wid, cid }) {
       return h('div', { class: 'ver-p' + (isGone ? ' gone' : '') }, wrapLine(line, vflags[i]));
     }));
     const s = sheet(h('div', { class: 'ver-sheet' },
-      h('p', { class: 'muted small' }, gone ? `지금 글에 없는 문단 ${gone}개를 칠해 뒀어요. 길게 눌러 일부만 복사할 수도 있어요.` : '길게 눌러 일부만 복사할 수도 있어요.'),
+      h('p', { class: 'muted small' }, gone ? tr('ed.goneParas', { n: gone }) : tr('ed.copyPart')),
       body,
-      h('button', { class: 'btn primary', onclick: () => { s.close(); restoreVersion(v); } }, '이 버전으로 되돌리기')),
-    { title: `${whenLabel(v.at)} · ${num(v.len)}자` });
+      h('button', { class: 'btn primary', onclick: () => { s.close(); restoreVersion(v); } }, tr('ed.restoreThis'))),
+    { title: `${whenLabel(v.at)} · ${tr('unit.chars', { n: num(countOf(v)) })}` });
   }
 
   // 되돌리기도 실행 취소(↶)로 되돌릴 수 있게 한 걸음으로 묶는다. 되돌리기 직전 모습도 버전으로 남긴다.
@@ -829,13 +831,13 @@ export function editorScreen({ wid, cid }) {
       if (fb) refreshFind(false);
       markDirty();
     });
-    toast(`${whenLabel(v.at)} 버전으로 되돌렸어요.`, { action: '취소', onAction: undo, duration: 6000 });
+    toast(tr('ed.restored', { when: whenLabel(v.at) }), { action: tr('common.cancel'), onAction: undo, duration: 6000 });
     emit('version-restored');
   }
 
   // ---- 메뉴 ----
   async function rename() {
-    const t = await ask('화 제목', { value: ch.title });
+    const t = await ask(tr('work.chapterTitle'), { value: ch.title });
     if (!t) return;
     ch.title = t;
     titleBtn.textContent = t;
@@ -849,18 +851,18 @@ export function editorScreen({ wid, cid }) {
     const text = manuscriptText(currentChapter());
     const nChanges = new Set(changesIn(wid, cid).map((x) => x.entry)).size;
     actions([
-      prev && { label: `‹ 이전 화 · ${prev.title}`, run: () => turnTo(prev, 'right') },
+      prev && { label: tr('ed.prevChapter', { title: prev.title }), run: () => turnTo(prev, 'right') },
       next
-        ? { label: `다음 화 › · ${next.title}`, run: () => turnTo(next, 'left') }
-        : { label: '다음 화 쓰기', run: () => turnTo(createChapter(wid), 'left') },
-      { label: nChanges ? `설정 보기 · 이 화에서 바뀐 것 ${nChanges}` : '설정 보기', run: settingsSheet },
-      notes.length ? { label: `주석 모아 보기 (${notes.length})`, run: notesSheet } : null,
-      { label: '이전 버전', run: versionsSheet },
-      { label: '제목 바꾸기', run: rename },
-      { label: '연재용으로 복사', run: () => { save.flush(); serialCopy(ch); } },
-      { label: '이 화만 텍스트로 내보내기', run: () => { save.flush(); exportChapter(work, ch); } },
-      { info: true, label: `공백 포함 ${num(text.length)}자 · 공백 제외 ${num(text.replace(/\s/g, '').length)}자` },
-      todayCount(wid) ? { info: true, label: `오늘 이 작품에서 +${num(todayCount(wid))}자` } : null,
+        ? { label: tr('ed.nextChapter', { title: next.title }), run: () => turnTo(next, 'left') }
+        : { label: tr('ed.writeNext'), run: () => turnTo(createChapter(wid), 'left') },
+      { label: nChanges ? tr('ed.viewSettingsN', { n: nChanges }) : tr('ed.viewSettings'), run: settingsSheet },
+      notes.length ? { label: tr('ed.notesAll', { n: notes.length }), run: notesSheet } : null,
+      { label: tr('ed.versions'), run: versionsSheet },
+      { label: tr('lib.renameTitle'), run: rename },
+      { label: tr('work.serialCopy'), run: () => { save.flush(); serialCopy(ch); } },
+      { label: tr('work.exportChapter'), run: () => { save.flush(); exportChapter(work, ch); } },
+      { info: true, label: tr('unit.charsBoth', { all: num(text.length), noSpace: num(text.replace(/\s/g, '').length), words: num(wordsOf(text)) }) },
+      todayCount(wid) ? { info: true, label: tr('ed.todayHere', { n: num(todayCount(wid)) }) } : null,
     ]);
   }
 
@@ -898,7 +900,7 @@ export function editorScreen({ wid, cid }) {
     titleBtn.style.opacity = String(1 - Math.min(a / 220, 0.6));
     const peek = toPrev ? peekL : peekR;
     (toPrev ? peekR : peekL).style.opacity = 0;
-    peek.textContent = toPrev ? (target ? `‹ ${target.title}` : '첫 화예요') : (target ? `${target.title} ›` : '＋ 다음 화 쓰기');
+    peek.textContent = toPrev ? (target ? `‹ ${target.title}` : tr('ed.firstChapter')) : (target ? `${target.title} ›` : tr('ed.writeNextPeek'));
     peek.style.opacity = String(Math.min(1, Math.abs(dx) / TURN));
     const ready = can && Math.abs(dx) >= TURN;
     if (ready !== drag.ready) { peek.classList.toggle('ready', ready); if (ready) navigator.vibrate?.(8); }
@@ -931,7 +933,7 @@ export function editorScreen({ wid, cid }) {
     wrap.classList.add('enter-' + enterFrom);
     enterFrom = null;
   }
-  if (chaptersOf(wid).length > 1) hintOnce('title-swipe', '위쪽 제목을 좌우로 밀면 이전 화·다음 화로 넘어가요.');
+  if (chaptersOf(wid).length > 1) hintOnce('title-swipe', tr('ed.titleSwipeTip'));
 
   // ---- 첫 표시 & 위치 복구 ----
   paint();
@@ -960,7 +962,7 @@ export function editorScreen({ wid, cid }) {
       ta.focus();
     }
   }, 0);
-  if (matcher) hintOnce('editor-tap', '색칠된 이름을 탭하면 그 캐릭터의 설정이 떠요.');
+  if (matcher) hintOnce('editor-tap', tr('ed.tapTip'));
 
   const flush = () => { save.flush(); savePos.flush(); };
   const onHide = () => { if (document.visibilityState === 'hidden') { flush(); snap(); } };

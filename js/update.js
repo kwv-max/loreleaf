@@ -2,6 +2,10 @@
 // 지금 돌고 있는 것과 다르면 알려 준다. 업데이트는 새로고침 한 번 (서비스 워커가 새 파일을 받아 온다).
 import { h, sheet, toast } from './ui.js';
 import { path } from './router.js';
+import { t, lang } from './i18n.js';
+
+// 새 버전 안내: 화면 언어의 글이 있으면 그걸로 (notes_en, notes_ja), 없으면 한국어 notes
+const notesOf = (v) => v[`notes_${lang()}`] || v.notes || [];
 
 let loaded = null; // 앱이 켜질 때의 버전
 let latest = null; // 새로 나온 버전 (없으면 null)
@@ -30,7 +34,7 @@ export async function checkUpdate() {
     latest = v;
     for (const fn of listeners) fn(v);
     // 글 쓰는 중에는 방해하지 않고, 다른 화면에서만 짧게 알린다 (작품 목록에는 따로 안내가 남는다)
-    if (!/\/c\//.test(path())) toast('갈피 새 버전이 있어요.', { action: '업데이트', onAction: showUpdate, duration: 8000 });
+    if (!/\/c\//.test(path())) toast(t('update.toast'), { action: t('update.go'), onAction: showUpdate, duration: 8000 });
   }
   return latest;
 }
@@ -40,10 +44,10 @@ export function showUpdate() {
   if (!latest) return;
   document.querySelector('.toast')?.remove(); // 알림 토스트가 시트를 가리지 않게
   const s = sheet(h('div', { class: 'update-sheet' },
-    latest.notes?.length ? h('ul', { class: 'update-notes' }, latest.notes.map((n) => h('li', null, n))) : null,
-    h('button', { class: 'btn primary', onclick: () => { s.close(); applyUpdate(); } }, '지금 업데이트'),
-    h('p', { class: 'muted small center' }, '쓰던 글은 그대로 남아요.')),
-  { title: `새 버전 ${latest.version}` });
+    notesOf(latest).length ? h('ul', { class: 'update-notes' }, notesOf(latest).map((n) => h('li', null, n))) : null,
+    h('button', { class: 'btn primary', onclick: () => { s.close(); applyUpdate(); } }, t('update.now')),
+    h('p', { class: 'muted small center' }, t('update.keep'))),
+  { title: t('update.title', { v: latest.version }) });
 }
 
 export function applyUpdate() {

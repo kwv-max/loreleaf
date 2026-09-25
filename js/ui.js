@@ -1,5 +1,7 @@
 // 작은 DOM 도우미와 공용 UI(시트, 토스트, 입력창).
 import { interceptBack } from './router.js';
+import { t, lang } from './i18n.js';
+export { josa } from './josa.js';
 
 export function h(tag, props, ...kids) {
   const el = document.createElement(tag);
@@ -92,7 +94,7 @@ export const iconBtn = (name, label, onclick) => h('button', { class: 'icon-btn'
 export function topbar({ onBack, title, right = [] }) {
   return h('header', { class: 'topbar' },
     h('div', { class: 'topbar-row' },
-      onBack ? iconBtn('back', '뒤로', onBack) : null,
+      onBack ? iconBtn('back', t('common.back'), onBack) : null,
       h('div', { class: 'topbar-title' + (onBack ? '' : ' brand') }, title),
       right));
 }
@@ -108,26 +110,18 @@ export function debounce(fn, ms) {
   return d;
 }
 
-export function relTime(t) {
-  const s = (Date.now() - t) / 1000;
-  if (s < 60) return '방금';
-  if (s < 3600) return `${Math.floor(s / 60)}분 전`;
-  if (s < 86400) return `${Math.floor(s / 3600)}시간 전`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}일 전`;
-  const d = new Date(t);
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+// '방금', '3분 전', '9월 21일' — 언어에 맞는 모양은 브라우저가 만든다
+export function relTime(when) {
+  const s = (Date.now() - when) / 1000;
+  if (s < 60) return t('time.justNow');
+  const rtf = new Intl.RelativeTimeFormat(lang(), { numeric: 'always' });
+  if (s < 3600) return rtf.format(-Math.floor(s / 60), 'minute');
+  if (s < 86400) return rtf.format(-Math.floor(s / 3600), 'hour');
+  if (s < 86400 * 7) return rtf.format(-Math.floor(s / 86400), 'day');
+  return new Intl.DateTimeFormat(lang(), { month: 'long', day: 'numeric' }).format(new Date(when));
 }
 
-// 받침에 따라 조사 고르기: josa('유나', '을', '를') → '를'
-export function josa(word, withFinal, withoutFinal) {
-  const c = String(word).trim().slice(-1).charCodeAt(0);
-  const hasFinal = c >= 0xac00 && c <= 0xd7a3
-    ? (c - 0xac00) % 28 !== 0
-    : /[013678lmnr]$/i.test(String(word).trim()); // 숫자·영문은 읽는 소리로 대강 판단
-  return hasFinal ? withFinal : withoutFinal;
-}
-
-export const num = (n) => n.toLocaleString('ko-KR');
+export const num = (n) => n.toLocaleString(lang());
 
 export function download(filename, text, type = 'text/plain') {
   const url = URL.createObjectURL(new Blob([text], { type: type + ';charset=utf-8' }));
@@ -203,7 +197,7 @@ export function actions(items, title) {
   });
 }
 
-export function ask(title, { value = '', placeholder = '', ok = '확인' } = {}) {
+export function ask(title, { value = '', placeholder = '', ok = t('common.ok') } = {}) {
   return new Promise((resolve) => {
     let result = null;
     const input = h('input', { class: 'field-input', value, placeholder, enterkeyhint: 'done' });
@@ -216,7 +210,7 @@ export function ask(title, { value = '', placeholder = '', ok = '확인' } = {})
   });
 }
 
-export function askLong(title, { value = '', placeholder = '', ok = '저장', note = null } = {}) {
+export function askLong(title, { value = '', placeholder = '', ok = t('common.save'), note = null } = {}) {
   return new Promise((resolve) => {
     let result = null;
     const input = autogrow(h('textarea', { class: 'field-input long', rows: 3, placeholder }));
@@ -230,13 +224,13 @@ export function askLong(title, { value = '', placeholder = '', ok = '저장', no
   });
 }
 
-export function confirmBox(message, { ok = '확인', danger = false } = {}) {
+export function confirmBox(message, { ok = t('common.ok'), danger = false } = {}) {
   return new Promise((resolve) => {
     let yes = false;
     const box = h('div', { class: 'sheet-form' },
       h('p', { class: 'sheet-msg' }, message),
       h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), onclick: () => { yes = true; s.close(); } }, ok),
-      h('button', { class: 'btn ghost', onclick: () => s.close() }, '취소'));
+      h('button', { class: 'btn ghost', onclick: () => s.close() }, t('common.cancel')));
     const s = sheet(box, { onClose: () => resolve(yes) });
   });
 }
@@ -265,7 +259,7 @@ export function hintOnce(key, msg) {
 }
 
 // 아이콘 고르기. 고른 이름, '기본으로'면 '', 닫으면 null.
-export function pickIcon(current, { title = '아이콘', defaultLabel = null } = {}) {
+export function pickIcon(current, { title = t('common.icon'), defaultLabel = null } = {}) {
   return new Promise((resolve) => {
     let picked = null;
     const done = (v) => { picked = v; s.close(); };
@@ -277,4 +271,44 @@ export function pickIcon(current, { title = '아이콘', defaultLabel = null } =
       defaultLabel ? h('button', { class: 'link-btn center', type: 'button', onclick: () => done('') }, defaultLabel) : null),
     { title, onClose: () => resolve(picked) });
   });
+}
+
+// 자체 드롭다운: 지금 값이 적힌 버튼을 누르면 바로 아래(자리가 없으면 위)에 목록이 펼쳐진다.
+//   options = [{ value, label, sub? }], onPick(value)
+export function dropdown({ value, options, onPick, label }) {
+  const cur = () => options.find((o) => o.value === value) || options[0];
+  const text = h('span', { class: 'dd-value' });
+  const btn = h('button', { class: 'dd-btn', type: 'button', 'aria-haspopup': 'listbox', 'aria-expanded': 'false', 'aria-label': label }, text, icon('down', 'dd-ic'));
+  const wrap = h('div', { class: 'dd' }, btn);
+  let menu = null, release = null;
+  const draw = () => { text.textContent = cur().label; };
+  const onOutside = (ev) => { if (!wrap.contains(ev.target)) close(); };
+  function close() {
+    if (!menu) return;
+    menu.remove();
+    menu = null;
+    btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', onOutside, true);
+    release?.();
+    release = null;
+  }
+  function open() {
+    menu = h('div', { class: 'dd-menu', role: 'listbox', 'aria-label': label }, options.map((o) => h('button', {
+      class: 'dd-opt' + (o.value === value ? ' on' : ''), type: 'button', role: 'option', 'aria-selected': o.value === value,
+      onclick: () => { close(); if (o.value !== value) { value = o.value; draw(); onPick?.(o.value); } },
+    }, h('span', { class: 'dd-check' }, o.value === value ? '✓' : ''), h('span', { class: 'dd-opt-text' }, o.label, o.sub ? h('small', null, o.sub) : null))));
+    wrap.append(menu);
+    // 아래 공간이 모자라면 위로 펼친다
+    const r = btn.getBoundingClientRect(), mh = menu.offsetHeight;
+    const vh = window.visualViewport?.height || innerHeight;
+    menu.classList.toggle('up', r.bottom + mh + 12 > vh && r.top - mh - 12 > 0);
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', onOutside, true);
+    release = interceptBack(close);
+    menu.querySelector('.dd-opt.on, .dd-opt')?.focus();
+  }
+  btn.addEventListener('click', () => (menu ? close() : open()));
+  wrap.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && menu) { ev.preventDefault(); close(); btn.focus(); } });
+  draw();
+  return wrap;
 }

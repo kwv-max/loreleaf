@@ -2,6 +2,7 @@
 //   chapter.quotes = { 줄번호: 'd'(큰따옴표·대사) | 's'(작은따옴표·생각) }
 // 에디터에서는 여백에 그려지고, 내보내기·복사할 때만 진짜 따옴표 글자가 붙는다.
 import { pref } from './prefs.js';
+import { lang } from './i18n.js';
 import { diffRange } from './anchors.js';
 
 const PAIRS = [['“', '”'], ['"', '"'], ['‘', '’'], ["'", "'"], ['「', '」'], ['『', '』']];
@@ -105,6 +106,13 @@ export function lengthOf(ch) {
   for (const [k] of Object.entries(ch.quotes || {})) if (lines[+k]?.trim()) n += 2;
   return n;
 }
+
+// 단어 수. 라틴 문자는 띄어쓰기 단위, 한자·가나는 글자 하나를 한 단어로 (워드프로세서와 같은 방식)
+const WORD = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu;
+export const wordsOf = (text) => (String(text).match(WORD) || []).length;
+
+// 화면에 보이는 분량: 영어 화면은 단어 수, 한국어·일본어는 글자 수
+export const countOf = (ch) => (lang() === 'en' ? wordsOf(ch.text) : lengthOf(ch));
 
 // 예전 방식(따옴표를 글자로 쓴 줄)을 대사 줄 표시로 한 번만 옮긴다.
 // 대사와 지문이 섞인 줄은 글자 그대로 둔다.

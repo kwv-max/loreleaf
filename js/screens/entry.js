@@ -10,6 +10,7 @@ import { go, back } from '../router.js';
 import { emit } from '../guide.js';
 import { setJump } from './editor.js';
 import { mentions, replaceEverywhere } from '../rename.js';
+import { t as tr } from '../i18n.js';
 import { moveToFolder } from './lore.js';
 import {
   orderOf, valueAt, historyOf, hasChanges, removeChange, factSheet, pruneSame,
@@ -31,8 +32,8 @@ export function entryScreen({ wid, eid }) {
 
   // ---- 이름 ----
   const name = h('input', {
-    class: 'entry-name', value: e.name, placeholder: isChar ? '이름' : '이름',
-    enterkeyhint: 'next', 'aria-label': '이름',
+    class: 'entry-name', value: e.name, placeholder: tr('entry.name'),
+    enterkeyhint: 'next', 'aria-label': tr('entry.name'),
     oninput: () => { e.name = name.value; save(); checkGuide(); },
   });
 
@@ -45,17 +46,17 @@ export function entryScreen({ wid, eid }) {
     const m = mentions(wid, from, to);
     if (!m.total) return;
     const shared = [...db.entries.values()].some((o) => o !== e && o.workId === wid && (o.name.trim() === from || o.aliases?.includes(from)));
-    const chLines = m.chapters.slice(0, 4).map(({ c, n }) => `${c.title} ${n}곳`);
-    if (m.chapters.length > 4) chLines.push(`외 ${m.chapters.length - 4}개 화`);
+    const chLines = m.chapters.slice(0, 4).map(({ c, n }) => tr('rename.chapterCount', { title: c.title, n }));
+    if (m.chapters.length > 4) chLines.push(tr('rename.moreChapters', { n: m.chapters.length - 4 }));
     let done = false;
     const s = sheet(h('div', { class: 'rename-sheet' },
       h('p', { class: 'rename-sum' },
-        m.inText ? `본문 ${m.inText}곳` : null, m.inText && m.settings ? ' · ' : null, m.settings ? `설정 ${m.settings}곳` : null),
+        m.inText ? tr('rename.inText', { n: m.inText }) : null, m.inText && m.settings ? ' · ' : null, m.settings ? tr('rename.inSettings', { n: m.settings }) : null),
       chLines.length ? h('p', { class: 'muted small' }, chLines.join(' · ')) : null,
       m.samples.length ? h('div', { class: 'rename-samples' }, m.samples.map((x) => h('div', null, x.before, h('mark', { class: 'hit' }, x.hit), x.after))) : null,
       h('p', { class: 'muted small' },
-        '다른 말 속에 든 경우(예: ‘미로처럼’)도 함께 바뀌어요. 이름 뒤 조사(은/는, 이/가 …)는 새 이름에 맞춰 고쳐요. 바꾸기 전 모습은 화마다 ‘이전 버전’에 남아요.'),
-      shared ? h('p', { class: 'rename-warn' }, `‘${from}’${josa(from, '은', '는')} 다른 설정도 쓰는 이름이에요. 그쪽 이름도 함께 바뀌니 조심하세요.`) : null,
+        tr('rename.note')),
+      shared ? h('p', { class: 'rename-warn' }, tr('rename.shared', { name: from })) : null,
       h('button', {
         class: 'btn primary',
         onclick: async () => {
@@ -63,14 +64,14 @@ export function entryScreen({ wid, eid }) {
           s.close();
           const r = await replaceEverywhere(wid, from, to);
           drawFields(); drawRelations(); drawMentions();
-          toast(`${r.count}곳을 ‘${to}’${josa(to, '으로', '로')} 바꿨어요.`, {
-            action: '되돌리기', duration: 8000,
-            onAction: () => { r.undo(); drawFields(); drawRelations(); drawMentions(); toast('바꾸기 전으로 돌렸어요.'); },
+          toast(tr('rename.done', { n: r.count, to }), {
+            action: tr('common.undo'), duration: 8000,
+            onAction: () => { r.undo(); drawFields(); drawRelations(); drawMentions(); toast(tr('rename.undone')); },
           });
         },
-      }, `모두 바꾸기 (${m.total}곳)`),
-      h('button', { class: 'link-btn center', onclick: () => s.close() }, '본문은 그대로 두기')),
-    { title: `‘${from}’ → ‘${to}’, 다른 곳도 바꿀까요?`, onClose: () => { if (!done) nameBefore = to; } });
+      }, tr('rename.all', { n: m.total })),
+      h('button', { class: 'link-btn center', onclick: () => s.close() }, tr('rename.keep'))),
+    { title: tr('rename.title', { from, to }), onClose: () => { if (!done) nameBefore = to; } });
   }
   name.addEventListener('change', askRename); // 이름 칸을 벗어날 때
 
@@ -79,8 +80,8 @@ export function entryScreen({ wid, eid }) {
   function drawAliases() {
     if (!aliasBox) return;
     const input = h('input', {
-      class: 'chip-input', placeholder: e.aliases.length ? '+ 별명' : '+ 별명 추가 (예: 마녀)',
-      enterkeyhint: 'enter', 'aria-label': '별명 추가',
+      class: 'chip-input', placeholder: e.aliases.length ? tr('entry.aliasMore') : tr('entry.aliasFirst'),
+      enterkeyhint: 'enter', 'aria-label': tr('entry.aliasAdd'),
     });
     const commit = () => {
       const vals = input.value.split(/[,，]/).map((s) => s.trim()).filter((s) => s && !e.aliases.includes(s) && s !== e.name.trim());
@@ -93,7 +94,7 @@ export function entryScreen({ wid, eid }) {
         .map((o) => [v, o.name]));
       if (shared.length) {
         const [v, who] = shared[0];
-        toast(`‘${v}’${josa(v, '은', '는')} ${who}도 쓰는 이름이에요. 본문에서 탭하면 누구인지 고를 수 있어요.`, { duration: 5000 });
+        toast(tr('entry.aliasShared', { alias: v, who }), { duration: 5000 });
       }
       drawAliases();
       aliasBox.querySelector('.chip-input')?.focus();
@@ -107,16 +108,16 @@ export function entryScreen({ wid, eid }) {
     input.addEventListener('blur', () => { if (input.value.trim()) commit(); });
     aliasBox.replaceChildren(
       ...e.aliases.map((a, i) => h('span', { class: 'chip', style: `--c:${e.color}` }, a,
-        h('button', { class: 'chip-x', 'aria-label': a + ' 지우기', onclick: () => { e.aliases.splice(i, 1); save(); drawAliases(); } }, '×'))),
+        h('button', { class: 'chip-x', 'aria-label': tr('entry.aliasRemove', { alias: a }), onclick: () => { e.aliases.splice(i, 1); save(); drawAliases(); } }, '×'))),
       input);
   }
   drawAliases();
 
   // ---- 아이콘 (캐릭터 말고): 누르면 이 항목만 다른 아이콘 ----
   const headIcon = isChar ? null : h('button', {
-    class: 'entry-icon', 'aria-label': '아이콘 바꾸기',
+    class: 'entry-icon', 'aria-label': tr('entry.changeIcon'),
     onclick: async () => {
-      const ic = await pickIcon(iconOf(e), { title: '아이콘', defaultLabel: e.icon ? `${t.label} 기본 아이콘으로` : null });
+      const ic = await pickIcon(iconOf(e), { title: tr('common.icon'), defaultLabel: e.icon ? tr('entry.defaultIcon', { label: t.label }) : null });
       if (ic == null) return;
       e.icon = ic || undefined;
       save();
@@ -128,9 +129,9 @@ export function entryScreen({ wid, eid }) {
   const headDot = h('span', { class: 'dot xl', style: `--c:${e.color}` });
   let colors = null;
   if (isChar) {
-    const picker = h('input', { type: 'color', value: COLORS.includes(e.color) ? '#e0607e' : e.color, 'aria-label': '색 직접 고르기' });
-    const customSw = h('label', { class: 'swatch custom', title: '직접 고르기' }, picker);
-    const swatches = COLORS.map((c) => h('button', { class: 'swatch', style: `--c:${c}`, 'aria-label': '색 ' + c, onclick: () => setColor(c) }));
+    const picker = h('input', { type: 'color', value: COLORS.includes(e.color) ? '#e0607e' : e.color, 'aria-label': tr('entry.pickColor') });
+    const customSw = h('label', { class: 'swatch custom', title: tr('entry.custom') }, picker);
+    const swatches = COLORS.map((c) => h('button', { class: 'swatch', style: `--c:${c}`, 'aria-label': tr('entry.color', { c }), onclick: () => setColor(c) }));
     const sync = () => {
       swatches.forEach((b, i) => b.classList.toggle('on', COLORS[i] === e.color));
       const custom = !COLORS.includes(e.color);
@@ -146,7 +147,7 @@ export function entryScreen({ wid, eid }) {
       sync();
     };
     picker.addEventListener('input', () => setColor(picker.value));
-    colors = h('div', { class: 'swatches', 'aria-label': '표시 색' }, swatches, customSw);
+    colors = h('div', { class: 'swatches', 'aria-label': tr('entry.colors') }, swatches, customSw);
     sync();
   }
 
@@ -158,14 +159,14 @@ export function entryScreen({ wid, eid }) {
     atBar.hidden = !show;
     if (!show) return;
     atBar.replaceChildren(
-      h('span', { class: 'muted small' }, '시점'),
-      h('button', { class: 'at-btn', onclick: pickAt }, atCid ? chTitle(atCid) : '최신 (마지막 화까지)', icon('down')));
+      h('span', { class: 'muted small' }, tr('entry.at')),
+      h('button', { class: 'at-btn', onclick: pickAt }, atCid ? chTitle(atCid) : tr('entry.latest'), icon('down')));
   }
   function pickAt() {
     actions([
-      { label: (atCid ? '' : '✓ ') + '최신 (마지막 화까지)', run: () => setAt(null) },
+      { label: (atCid ? '' : '✓ ') + tr('entry.latest'), run: () => setAt(null) },
       ...chaptersOf(wid).map((c) => ({ label: (c.id === atCid ? '✓ ' : '') + c.title, run: () => setAt(c.id) })),
-    ], '몇 화 시점으로 볼까요?');
+    ], tr('entry.atWhich'));
   }
   function setAt(cid) { atCid = cid; setViewAt(wid, cid); drawAt(); drawFields(); drawMentions(); drawRelations(); }
 
@@ -182,11 +183,11 @@ export function entryScreen({ wid, eid }) {
     fieldBox.replaceChildren(...e.fields.map((f) => {
       const cur = valueAt(f, atIdx(), order);
       const label = h('input', {
-        class: 'field-label', value: f.label, placeholder: '항목', 'aria-label': '항목 이름',
+        class: 'field-label', value: f.label, placeholder: tr('entry.fieldPh'), 'aria-label': tr('entry.fieldName'),
         oninput: () => { f.label = label.value; save(); },
       });
       const value = autogrow(h('textarea', {
-        class: 'field-value', rows: 1, placeholder: '내용', 'aria-label': f.label || '내용',
+        class: 'field-value', rows: 1, placeholder: tr('entry.valuePh'), 'aria-label': f.label || tr('entry.valuePh'),
         oninput: () => { if (cur.rec) cur.rec.value = value.value; else f.value = value.value; save(); drawChips(); },
       }));
       value.value = cur.value;
@@ -196,7 +197,7 @@ export function entryScreen({ wid, eid }) {
         const n = pruneSame(f, order);
         if (!n) return;
         save();
-        toast(`앞 화와 같은 값이 된 기록 ${n}개를 지웠어요.`);
+        toast(tr('fact.pruned', { n }));
         setTimeout(() => {
           const a = document.activeElement;
           drawAt();
@@ -209,13 +210,13 @@ export function entryScreen({ wid, eid }) {
       const linkPill = keepFocus(h('button', {
         class: 'link-pill' + (link ? ' on' : ''),
         onclick: () => actions([
-          { label: (link ? '' : '✓ ') + '연결 안 함', run: () => { f.link = null; save(); drawFields(); } },
+          { label: (link ? '' : '✓ ') + tr('entry.linkNone'), run: () => { f.link = null; save(); drawFields(); } },
           ...typesOf(wid).filter((x) => x.key !== 'memo').map((x) => ({
-            label: (link === x.key ? '✓ ' : '') + `${x.label} 목록`,
+            label: (link === x.key ? '✓ ' : '') + tr('entry.linkList', { label: x.label }),
             run: () => { f.link = x.key; save(); drawFields(); },
           })),
-        ], `‘${f.label || '이 항목'}’에 나오는 이름을 어느 목록에서 찾을까요?`),
-      }, link ? `→ ${typeOf(link, wid).label}` : '연결'));
+        ], tr('entry.linkAsk', { field: f.label })),
+      }, link ? `→ ${typeOf(link, wid).label}` : tr('entry.link')));
       // 연결된 항목은 평소엔 형광펜 보기(이름을 누르면 아래에 미리보기), 글 부분을 누르면 고치기
       const targets = () => (link ? namedOfType(wid, link).filter((x) => x !== e) : []);
       const view = link ? h('div', { class: 'field-value field-view', onclick: (ev) => tapView(ev) }) : null;
@@ -227,7 +228,7 @@ export function entryScreen({ wid, eid }) {
           ? linkParts(value.value, targets()).map((p) => (p.e
             ? h('mark', { class: 'lk' + (p.e.id === peekId ? ' on' : ''), 'data-id': p.e.id, style: `--c:${p.e.color || 'var(--accent)'}` }, p.t)
             : p.t))
-          : [h('span', { class: 'ph' }, '내용')]));
+          : [h('span', { class: 'ph' }, tr('entry.valuePh'))]));
       }
       function editMode(on) {
         if (!view) return;
@@ -288,16 +289,16 @@ export function entryScreen({ wid, eid }) {
       const meta = hist.length > 1 ? h('button', {
         class: 'field-meta',
         onclick: () => { open ? opened.delete(f.id) : opened.add(f.id); drawFields(); },
-      }, cur.rec ? `${chTitle(cur.rec.chapterId)}부터 이 값` : '처음 값', ` · 바뀐 기록 ${hist.length - 1}`, icon(open ? 'up' : 'down')) : null;
+      }, cur.rec ? tr('entry.sinceValue', { title: chTitle(cur.rec.chapterId) }) : tr('entry.firstValue'), tr('entry.changes', { n: hist.length - 1 }), icon(open ? 'up' : 'down')) : null;
       const histList = hist.length > 1 && open ? h('div', { class: 'hist' }, hist.map((r) => h('div', { class: 'hist-row' + (r.rec === cur.rec ? ' on' : '') },
         h('button', { class: 'hist-main', disabled: !r.rec, onclick: () => r.rec && setAt(r.rec.chapterId) },
-          h('span', { class: 'hist-when' }, r.rec ? chTitle(r.rec.chapterId) : '처음'),
-          h('span', { class: 'hist-val' }, r.value || '(비움)')),
+          h('span', { class: 'hist-when' }, r.rec ? chTitle(r.rec.chapterId) : tr('entry.first')),
+          h('span', { class: 'hist-val' }, r.value || tr('entry.cleared'))),
         r.rec ? h('button', {
-          class: 'icon-btn sm', 'aria-label': '이 기록 지우기',
+          class: 'icon-btn sm', 'aria-label': tr('entry.removeRecord'),
           onclick: () => {
             const n = removeChange(e, f, r.rec);
-            if (n) toast(`그 뒤에 앞 화와 같아진 기록 ${n}개도 함께 지웠어요.`);
+            if (n) toast(tr('entry.prunedAfter', { n }));
             drawAt(); drawFields();
           },
         }, icon('close')) : null))) : null;
@@ -307,11 +308,11 @@ export function entryScreen({ wid, eid }) {
           save.flush();
           if (await factSheet(e, f, { mode: 'change', cid: atCid })) { opened.add(f.id); drawAt(); drawFields(); }
         },
-      }, '＋ 몇 화부터 바뀜')) : null;
+      }, tr('entry.addChange'))) : null;
 
       return h('div', { class: 'field' + (open ? ' open' : ''), 'data-fid': f.id },
         h('div', { class: 'field-top' }, label, linkPill,
-          keepFocus(h('button', { class: 'icon-btn sm', 'aria-label': '항목 지우기', onclick: () => { e.fields = e.fields.filter((x) => x !== f); save(); drawFields(); } }, icon('close')))),
+          keepFocus(h('button', { class: 'icon-btn sm', 'aria-label': tr('entry.removeField'), onclick: () => { e.fields = e.fields.filter((x) => x !== f); save(); drawFields(); } }, icon('close')))),
         view, value, peek, chips, meta, histList, addChange);
     }));
     const used = new Set(e.fields.map((f) => f.label.trim()));
@@ -319,7 +320,7 @@ export function entryScreen({ wid, eid }) {
     suggestBox.replaceChildren(
       ...[...new Set([...t.fields, ...entriesOf(wid, e.type).flatMap((x) => x.fields.map((f) => f.label.trim()))])]
         .filter((l) => l && !used.has(l)).slice(0, 6).map((l) => h('button', { class: 'suggest-chip', onclick: () => add(l) }, '+ ' + l)),
-      h('button', { class: 'suggest-chip plain', onclick: () => add('') }, '+ 직접 추가'));
+      h('button', { class: 'suggest-chip plain', onclick: () => add('') }, tr('entry.addCustom')));
   }
   // 형광펜 이름을 눌렀을 때 항목 아래에 펼치는 미리보기
   function peekOf(x, close) {
@@ -333,11 +334,11 @@ export function entryScreen({ wid, eid }) {
         x.type === 'character' ? h('span', { class: 'dot', style: `--c:${x.color}` }) : icon(iconOf(x), 'type-ic'),
         h('b', null, x.name),
         h('span', { class: 'muted small' }, x.type === 'character' && x.aliases.length ? x.aliases.join(' · ') : xt.label),
-        h('button', { class: 'icon-btn sm', 'aria-label': '닫기', onclick: close }, icon('close'))),
+        h('button', { class: 'icon-btn sm', 'aria-label': tr('common.close'), onclick: close }, icon('close'))),
       facts.length
         ? h('dl', { class: 'peek-facts' }, facts.map(([l, v]) => [h('dt', null, l), h('dd', null, v)]))
-        : x.note?.trim() ? h('p', { class: 'lk-peek-note' }, x.note.trim()) : h('p', { class: 'muted small' }, '아직 적어둔 설정이 없어요.'),
-      h('button', { class: 'link-btn', onclick: () => go(`/w/${wid}/e/${x.id}`) }, '설정 열기', icon('chev')),
+        : x.note?.trim() ? h('p', { class: 'lk-peek-note' }, x.note.trim()) : h('p', { class: 'muted small' }, tr('entry.noDetails')),
+      h('button', { class: 'link-btn', onclick: () => go(`/w/${wid}/e/${x.id}`) }, tr('entry.open'), icon('chev')),
     ];
   }
 
@@ -376,7 +377,7 @@ export function entryScreen({ wid, eid }) {
       if (!link) f.link = type;
       save();
       const k = typeOf(type, wid).label;
-      toast(`‘${word}’${josa(word, '을', '를')} ${k} 목록에 등록했어요.`);
+      toast(tr('entry.registered', { word, kind: k }));
       if (link) { ta.setSelectionRange(en, en); ta.dispatchEvent(new Event('input')); } // 추천 칩 갱신
       else drawFields(); // 연결 표시가 새로 생긴다
     };
@@ -384,9 +385,9 @@ export function entryScreen({ wid, eid }) {
       h('button', {
         class: 'chip-btn',
         onclick: () => (link ? add(link) : actions(
-          typesOf(wid).filter((x) => x.key !== 'memo').map((x) => ({ label: `${x.label} 목록`, run: () => add(x.key) })),
-          `‘${word}’${josa(word, '을', '를')} 어느 목록에 등록할까요?`)),
-      }, icon('plus'), link ? `‘${clip(word)}’ ${kind}${josa(kind, '으로', '로')} 등록` : `‘${clip(word)}’ 설정으로 등록`));
+          typesOf(wid).filter((x) => x.key !== 'memo').map((x) => ({ label: tr('entry.linkList', { label: x.label }), run: () => add(x.key) })),
+          tr('entry.registerWhere', { word }))),
+      }, icon('plus'), link ? tr('entry.registerAs', { word: clip(word), kind }) : tr('entry.registerAny', { word: clip(word) })));
     selChip.addEventListener('pointerdown', (ev) => ev.preventDefault());
     document.body.append(selChip);
   }
@@ -404,7 +405,7 @@ export function entryScreen({ wid, eid }) {
     const list = e.name.trim() ? mentionsOf(e, atCid) : [];
     mentionBox.hidden = !list.length;
     mentionBox.replaceChildren(
-      h('h3', null, '연결된 곳', h('span', { class: 'count' }, list.length)),
+      h('h3', null, tr('entry.mentions'), h('span', { class: 'count' }, list.length)),
       h('div', { class: 'list' }, list.map(({ entry, field, value }) => h('div', { class: 'row' },
         h('button', { class: 'row-main with-icon', onclick: () => go(`/w/${wid}/e/${entry.id}`) },
           entry.color ? h('span', { class: 'dot lg', style: `--c:${entry.color}` }) : icon(iconOf(entry), 'type-ic'),
@@ -429,8 +430,8 @@ export function entryScreen({ wid, eid }) {
       .filter((x) => x.other)
       .sort((a, b) => a.other.name.localeCompare(b.other.name, 'ko'));
     relBox.replaceChildren(
-      h('h3', { class: 'sec-head' }, h('span', null, '관계', rels.length ? h('span', { class: 'count' }, rels.length) : null),
-        rels.length ? h('button', { class: 'link-btn small', onclick: () => go(`/w/${wid}/graph/${e.id}`) }, '관계도', icon('chev')) : null),
+      h('h3', { class: 'sec-head' }, h('span', null, tr('rel.title'), rels.length ? h('span', { class: 'count' }, rels.length) : null),
+        rels.length ? h('button', { class: 'link-btn small', onclick: () => go(`/w/${wid}/graph/${e.id}`) }, tr('rel.graph'), icon('chev')) : null),
       rels.length ? h('div', { class: 'list' }, rels.map(({ r, other }) => {
         const [mine, theirs] = sidesFor(r, e.id);
         const m = sideText(mine), t = sideText(theirs);
@@ -440,18 +441,18 @@ export function entryScreen({ wid, eid }) {
             h('div', null,
               h('div', { class: 'row-title' }, other.name),
               m ? h('div', { class: 'row-sub' }, m) : null,
-              t ? h('div', { class: 'row-sub muted' }, `${other.name}${josa(other.name, '이', '가')} 보기엔: ${t}`) : null,
-              !m && !t ? h('div', { class: 'row-sub muted' }, '관계 적기') : null)),
+              t ? h('div', { class: 'row-sub muted' }, tr('rel.theySee', { name: other.name, text: t })) : null,
+              !m && !t ? h('div', { class: 'row-sub muted' }, tr('rel.write')) : null)),
           icon('chev', 'chev'));
       })) : null,
-      h('div', { class: 'suggest' }, h('button', { class: 'suggest-chip', onclick: addRelation }, '+ 관계 추가')));
+      h('div', { class: 'suggest' }, h('button', { class: 'suggest-chip', onclick: addRelation }, tr('rel.add'))));
   }
 
   // 누구와의 관계인지: 이름이나 별명으로 찾기
   function addRelation() {
     const pool = charactersOf(wid).filter((x) => x.id !== e.id).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-    if (!pool.length) { toast('관계를 맺을 다른 캐릭터가 아직 없어요.'); return; }
-    const input = h('input', { class: 'field-input', placeholder: '이름이나 별명으로 찾기', enterkeyhint: 'search', 'aria-label': '캐릭터 찾기' });
+    if (!pool.length) { toast(tr('rel.noOthers')); return; }
+    const input = h('input', { class: 'field-input', placeholder: tr('rel.searchPh'), enterkeyhint: 'search', 'aria-label': tr('rel.search') });
     const list = h('div', { class: 'pick-list' });
     let chosen = null;
     const draw = () => {
@@ -460,8 +461,8 @@ export function entryScreen({ wid, eid }) {
       list.replaceChildren(...hits.map((x) => h('button', { class: 'pick-row', type: 'button', onclick: () => { chosen = x; s.close(); } },
         h('span', { class: 'dot', style: `--c:${x.color}` }),
         h('span', { class: 'pick-name' }, x.name),
-        h('span', { class: 'muted small pick-sub' }, relationBetween(e.id, x.id) ? '이미 적은 관계' : x.aliases.join(', ')))),
-      hits.length ? null : h('p', { class: 'muted small' }, '맞는 캐릭터가 없어요.'));
+        h('span', { class: 'muted small pick-sub' }, relationBetween(e.id, x.id) ? tr('rel.already') : x.aliases.join(', ')))),
+      hits.length ? null : h('p', { class: 'muted small' }, tr('rel.noMatch')));
     };
     input.addEventListener('input', draw);
     input.addEventListener('keydown', (ev) => {
@@ -471,7 +472,7 @@ export function entryScreen({ wid, eid }) {
     });
     draw();
     const s = sheet(h('div', { class: 'pick-sheet' }, input, list), {
-      title: '누구와의 관계인가요?',
+      title: tr('rel.who'),
       onClose: () => { if (chosen) setTimeout(() => relationSheet(relationBetween(e.id, chosen.id) || createRelation(wid, e.id, chosen.id)), 0); },
     });
     setTimeout(() => input.focus(), 60);
@@ -485,21 +486,21 @@ export function entryScreen({ wid, eid }) {
     let removed = false;
     const sideRow = (side, from, to, autofocus) => {
       const cur = valueAt(side, atIdx(), order);
-      const input = autogrow(h('textarea', { class: 'field-input', rows: 1, placeholder: '비워 둬도 돼요', 'aria-label': `${from.name}${josa(from.name, '이', '가')} 보는 ${to.name}` }));
+      const input = autogrow(h('textarea', { class: 'field-input', rows: 1, placeholder: tr('rel.optional'), 'aria-label': tr('rel.sees', { from: from.name, to: to.name }) }));
       input.value = cur.value;
       const hist = historyOf(side, order);
       const el = h('div', { class: 'rel-side' },
         h('div', { class: 'rel-dir' }, h('span', { class: 'dot', style: `--c:${from.color}` }), `${from.name} → ${to.name}`),
         input,
         h('div', { class: 'rel-meta' },
-          hist.length > 1 ? h('span', { class: 'muted small' }, (cur.rec ? `${chTitle(cur.rec.chapterId)}부터 이 값` : '처음 값') + ` · 바뀐 기록 ${hist.length - 1}`) : h('span'),
+          hist.length > 1 ? h('span', { class: 'muted small' }, (cur.rec ? tr('entry.sinceValue', { title: chTitle(cur.rec.chapterId) }) : tr('entry.firstValue')) + tr('entry.changes', { n: hist.length - 1 })) : h('span'),
           order.size ? h('button', {
             type: 'button', class: 'link-btn small',
             onclick: async () => {
               s.close(); // 닫으면서 지금 적은 것 저장
               if (await factSheet(r, side, { mode: 'change', cid: atCid, title: `${from.name} → ${to.name}` })) { drawAt(); drawRelations(); }
             },
-          }, '＋ 몇 화부터 바뀜') : null));
+          }, tr('entry.addChange')) : null));
       if (autofocus) setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 60);
       return { side, cur, input, el };
     };
@@ -515,10 +516,10 @@ export function entryScreen({ wid, eid }) {
       else { put('relations', r); emit('relation-added'); }
     };
     const s = sheet(h('form', { class: 'sheet-form', onsubmit: (ev) => { ev.preventDefault(); s.close(); } },
-      atCid ? h('p', { class: 'muted small' }, `${chTitle(atCid)} 시점`) : null,
+      atCid ? h('p', { class: 'muted small' }, tr('rel.atChapter', { title: chTitle(atCid) })) : null,
       A.el, B.el,
-      h('p', { class: 'muted small' }, '한쪽만 적어도 돼요. 상대 화면에도 함께 보여요.'),
-      h('button', { class: 'btn primary', type: 'submit' }, '저장'),
+      h('p', { class: 'muted small' }, tr('rel.oneSide')),
+      h('button', { class: 'btn primary', type: 'submit' }, tr('common.save')),
       h('div', { class: 'rel-foot' },
         h('button', {
           type: 'button', class: 'link-btn danger',
@@ -526,20 +527,20 @@ export function entryScreen({ wid, eid }) {
             removed = true;
             del('relations', r.id);
             s.close();
-            toast(`${other.name}${josa(other.name, '과', '와')}의 관계를 지웠어요.`, {
-              action: '되돌리기', duration: 6000,
+            toast(tr('rel.deleted', { name: other.name }), {
+              action: tr('common.undo'), duration: 6000,
               onAction: () => { put('relations', r, { touch: false }); drawRelations(); drawAt(); },
             });
           },
-        }, '관계 지우기'),
-        h('button', { type: 'button', class: 'link-btn', onclick: () => { s.close(); go(`/w/${wid}/e/${other.id}`); } }, `${other.name} 설정`, icon('chev')))),
+        }, tr('rel.delete')),
+        h('button', { type: 'button', class: 'link-btn', onclick: () => { s.close(); go(`/w/${wid}/e/${other.id}`); } }, tr('rel.openOther', { name: other.name }), icon('chev')))),
     { title: `${e.name} ↔ ${other.name}`, onClose: () => { if (!removed) commit(); drawRelations(); drawAt(); } });
   }
   drawRelations();
 
   // ---- 메모 ----
   const note = autogrow(h('textarea', {
-    class: 'entry-note', placeholder: '자유롭게 적어 두는 곳', 'aria-label': '메모',
+    class: 'entry-note', placeholder: tr('entry.notePh'), 'aria-label': tr('entry.note'),
     oninput: () => { e.note = note.value; save(); },
   }));
   note.value = e.note;
@@ -549,25 +550,25 @@ export function entryScreen({ wid, eid }) {
   if (isChar && e.name.trim()) {
     const apps = appearances(e);
     appearBox = h('section', { class: 'entry-sec' },
-      h('h3', null, '등장한 화', apps.length ? h('span', { class: 'count' }, apps.length) : null),
+      h('h3', null, tr('entry.appears'), apps.length ? h('span', { class: 'count' }, apps.length) : null),
       apps.length
         ? h('div', { class: 'list flat' }, apps.map((a) => h('button', {
           class: 'row-main appear',
           onclick: () => { setJump(a.chapter.id, a.first, a.len); go(`/w/${wid}/c/${a.chapter.id}`); },
-        }, h('span', null, a.chapter.title), h('span', { class: 'muted' }, `${a.count}번 언급`), icon('chev', 'chev'))))
-        : h('p', { class: 'muted small' }, '아직 본문에 나오지 않았어요. 이름이나 별명을 쓰면 여기에 자동으로 모여요.'));
+        }, h('span', null, a.chapter.title), h('span', { class: 'muted' }, tr('entry.mentionCount', { n: a.count })), icon('chev', 'chev'))))
+        : h('p', { class: 'muted small' }, tr('entry.notYet')));
   }
 
   function menu() {
     actions([
-      foldersOf(wid, e.type).length || e.folderId ? { label: '폴더로 옮기기', run: () => moveToFolder(e) } : null,
-      { label: '삭제', danger: true, run: () => {
+      foldersOf(wid, e.type).length || e.folderId ? { label: tr('entry.moveFolder'), run: () => moveToFolder(e) } : null,
+      { label: tr('common.delete'), danger: true, run: () => {
         save.cancel(); // 지운 뒤에 남은 저장이 되살리지 않도록
         del('entries', e.id);
         const gone = removeRelationsOf(e.id);
         back(listPath);
-        toast(`‘${e.name || '이름 없음'}’${josa(e.name || '음', '을', '를')} 지웠어요.`, {
-          action: '되돌리기', duration: 6000,
+        toast(tr('entry.deleted', { name: e.name }), {
+          action: tr('common.undo'), duration: 6000,
           onAction: () => { put('entries', e, { touch: false }); for (const r of gone) put('relations', r, { touch: false }); go(location.hash.slice(1), { replace: true }); },
         });
       } },
@@ -575,20 +576,20 @@ export function entryScreen({ wid, eid }) {
   }
 
   const el = h('div', { class: 'screen' },
-    topbar({ onBack: () => back(listPath), title: t.label, right: [iconBtn('more', '메뉴', menu)] }),
+    topbar({ onBack: () => back(listPath), title: t.label, right: [iconBtn('more', tr('common.menu'), menu)] }),
     h('main', { class: 'content entry' },
       h('div', { class: 'entry-head' }, isChar ? headDot : headIcon, name),
-      isChar ? h('section', { class: 'entry-sec' }, h('h3', null, '별명'), aliasBox,
-        h('p', { class: 'muted small' }, '이름과 별명이 본문에 나오면 형광펜으로 표시돼요.')) : null,
-      isChar ? h('section', { class: 'entry-sec' }, h('h3', null, '표시 색'), colors) : null,
-      h('section', { class: 'entry-sec' }, h('h3', null, '설정'), atBar, fieldBox, suggestBox),
+      isChar ? h('section', { class: 'entry-sec' }, h('h3', null, tr('entry.aliases')), aliasBox,
+        h('p', { class: 'muted small' }, tr('entry.aliasesNote'))) : null,
+      isChar ? h('section', { class: 'entry-sec' }, h('h3', null, tr('entry.colors')), colors) : null,
+      h('section', { class: 'entry-sec' }, h('h3', null, tr('entry.details')), atBar, fieldBox, suggestBox),
       relBox,
       mentionBox,
-      h('section', { class: 'entry-sec' }, h('h3', null, '메모'), note),
+      h('section', { class: 'entry-sec' }, h('h3', null, tr('entry.note')), note),
       appearBox));
 
   if (!e.name) setTimeout(() => name.focus(), 60);
-  else hintOnce('entry-autosave', '적는 즉시 저장돼요. 따로 저장 버튼은 없어요.');
+  else hintOnce('entry-autosave', tr('entry.autosave'));
 
   el.cleanup = () => {
     document.removeEventListener('selectionchange', onDocSelect);
