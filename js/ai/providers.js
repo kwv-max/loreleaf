@@ -36,6 +36,43 @@ async function callJSON(url, { headers, body, signal } = {}) {
 }
 
 const MAX_TOKENS = 16000;
+
+// ---- 생각하기 (짧게 low / 보통 mid / 깊게 deep) ----
+// 회사·모델마다 켜고 끄는 방법이 달라서, 모델 이름 모양으로 가른다. 모르는 새 모델은 가장 최신 방식으로 본다.
+const A_ADAPTIVE = /(opus|sonnet)-4-[6-9]|(opus|sonnet)-[5-9]|fable|mythos/; // adaptive thinking + effort
+const A_BUDGET = /haiku-4-5|sonnet-4-5|opus-4-5|3-7-sonnet/;                    // budget_tokens 방식
+const A_NO_OFF = /fable|mythos|opus-5-[1-9]|opus-[6-9]|^claude-opus-5$/;         // 끌 수 없거나, 끄면 도구 호출이 불안정한 모델 → effort를 낮춘다
+const A_XHIGH = /opus-4-[7-9]|(opus|sonnet)-[5-9]|fable|mythos/;
+export function anthropicThinking(model, level) {
+  const adaptive = A_ADAPTIVE.test(model) || !(A_BUDGET.test(model) || /claude-3|haiku|-4-[0-4]|-4-1/.test(model));
+  if (!adaptive) {
+    if (!A_BUDGET.test(model) || level === 'low') return {};
+    return { thinking: { type: 'enabled', budget_tokens: level === 'deep' ? 10000 : 4000 } };
+  }
+  if (level === 'low') return A_NO_OFF.test(model) ? { output_config: { effort: 'low' } } : { thinking: { type: 'disabled' } };
+  if (level === 'deep') return { thinking: { type: 'adaptive' }, output_config: { effort: A_XHIGH.test(model) ? 'xhigh' : 'high' } };
+  return { thinking: { type: 'adaptive' } };
+}
+const openaiReasoning = (model) => /^(o\d|gpt-5)/.test(model) && !/chat/.test(model);
+export function openaiThinking(model, level) {
+  if (!openaiReasoning(model) || level === 'mid') return {};
+  return { reasoning_effort: level === 'deep' ? 'high' : 'low' };
+}
+const geminiThinks = (model) => !/gemini-(1\.|2\.0)/.test(model);
+export function geminiThinking(model, level) {
+  if (!geminiThinks(model)) return {};
+  if (/gemini-[3-9]/.test(model)) return level === 'mid' ? {} : { thinkingConfig: { thinkingLevel: level === 'deep' ? 'high' : 'low' } };
+  const pro = /pro/.test(model); // 2.5 Pro는 생각을 끌 수 없다 (최소 128)
+  const budget = { low: pro ? 128 : 0, mid: -1, deep: pro ? 32768 : 24576 }[level];
+  return { thinkingConfig: { thinkingBudget: budget } };
+}
+// 이 모델에서 생각하기를 고를 수 있는지 (없으면 화면에서 '해당 없음')
+export function canThink(provider, model) {
+  if (!model) return false;
+  if (provider === 'openai') return openaiReasoning(model);
+  if (provider === 'gemini') return geminiThinks(model);
+  return A_ADAPTIVE.test(model) || A_BUDGET.test(model) || !/claude-3|haiku|-4-[0-4]|-4-1/.test(model);
+}
 const schema = (tool, upper = false) => {
   const ty = (s) => (upper ? s.toUpperCase() : s);
   if (!Object.keys(tool.params).length) return null;
@@ -61,13 +98,14 @@ export const PROVIDERS = {
       } catch (e) { throw anthropicError(Anthropic, e); }
       return out; // 새 모델이 앞에
     },
-    async turn({ key, model, system, messages, tools, noTools = false, signal }) {
+    async turn({ key, model, system, messages, tools, noTools = false, thinking = 'mid', signal }) {
       const Anthropic = await anthropicSDK();
       const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 2 });
       let res;
       try {
         res = await client.messages.create({
           model, max_tokens: MAX_TOKENS, system,
+          ...anthropicThinking(model, thinking),
           ...(noTools ? { tool_choice: { type: 'none' } } : {}),
           cache_control: { type: 'ephemeral' }, // 도구를 부를 때마다 앞부분(설명·도구·지난 대화)을 다시 보내니, 캐시로 비용을 줄인다
           tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: schema(t) || { type: 'object', properties: {} } })),
@@ -101,11 +139,12 @@ export const PROVIDERS = {
         .sort((a, b) => (b.created || 0) - (a.created || 0))
         .map((m) => ({ id: m.id, label: m.id }));
     },
-    async turn({ key, model, system, messages, tools, noTools = false, signal }) {
+    async turn({ key, model, system, messages, tools, noTools = false, thinking = 'mid', signal }) {
       const res = await callJSON('https://api.openai.com/v1/chat/completions', {
         headers: { Authorization: `Bearer ${key}` }, signal,
         body: {
           model,
+          ...openaiThinking(model, thinking),
           ...(noTools ? { tool_choice: 'none' } : {}),
           tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: schema(t) || { type: 'object', properties: {} } } })),
           messages: [{ role: 'system', content: system }, ...messages.flatMap((m) => {
@@ -145,10 +184,11 @@ export const PROVIDERS = {
         .filter((m) => !/(embedding|tts|image|live|audio|video|omni|robotics|computer-use|aqa|native)/.test(m.id))
         .map((m) => ({ id: m.id, label: m.displayName || m.id }));
     },
-    async turn({ key, model, system, messages, tools, noTools = false, signal }) {
+    async turn({ key, model, system, messages, tools, noTools = false, thinking = 'mid', signal }) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
       const body = {
         systemInstruction: { parts: [{ text: system }] },
+        ...(geminiThinks(model) ? { generationConfig: geminiThinking(model, thinking) } : {}),
         ...(noTools ? { toolConfig: { functionCallingConfig: { mode: 'NONE' } } } : {}),
         tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, ...(schema(t, true) ? { parameters: schema(t, true) } : {}) })) }],
         contents: messages.map((m) => {

@@ -570,4 +570,20 @@ export default {
 
   // ---- AI 도우미: 오류 ----
   'ask.failed': 'No answer came back: {msg}',
+
+  // ---- AI 도우미: 대화 목록·생각하기 ----
+  'ask.chats': 'Chats',
+  'ask.chatMenu': 'Chat menu',
+  'ask.noChats': 'No saved chats yet.',
+  'ask.rename': 'Rename chat',
+  'ask.delete': 'Delete chat',
+  'ask.deleted': 'Chat deleted.',
+  'ask.think': 'Thinking',
+  'ask.think.low': 'Think less',
+  'ask.think.mid': 'Think normally',
+  'ask.think.deep': 'Think deeply',
+  'ask.think.lowSub': 'Fast and cheap; off where possible',
+  'ask.think.midSub': 'Thinks as needed (default)',
+  'ask.think.deepSub': 'More careful, slower and costlier',
+  'ask.think.na': 'No thinking on this model',
 };

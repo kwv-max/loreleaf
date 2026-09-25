@@ -27,13 +27,13 @@ Rules:
 Work: "${w?.title || ''}" — ${chs.length} chapter(s).${at >= 0 ? `\nThe author is currently looking at chapter ${at + 1}: "${chs[at].title}". "This chapter" means that one.` : ''}`;
 }
 
-// history: 대화 기록(회사와 상관없는 모양, providers.js 참고). 이 함수가 뒤에 덧붙인다.
+// chat: 대화 (ai/chats.js). 회사·모델은 대화마다 정해져 있고, chat.history 뒤에 덧붙인다.
 // onStep({ name, input }): 도구를 부를 때마다 (진행 표시용)
-export async function ask({ wid, cid = null, history, question, onStep, signal }) {
+export async function ask({ wid, cid = null, chat, question, onStep, signal }) {
   const c = aiConfig();
-  const P = PROVIDERS[c.provider];
-  const key = c.keys[c.provider];
-  const model = c.model[c.provider];
+  const { provider, model, history } = chat;
+  const P = PROVIDERS[provider];
+  const key = c.keys[provider];
   if (!P || !key || !model) throw new AiError('other', 'not set up');
   const system = systemPrompt(wid, cid);
   const usage = { in: 0, out: 0 };
@@ -41,7 +41,7 @@ export async function ask({ wid, cid = null, history, question, onStep, signal }
   for (let step = 0; step <= MAX_STEPS; step++) {
     if (signal?.aborted) throw new AiError('aborted');
     // 마지막 차례에는 도구를 못 부르게 해서, 지금까지 읽은 것으로 답하게 한다
-    const res = await P.turn({ key, model, system, messages: history, tools: TOOLS, noTools: step === MAX_STEPS, signal });
+    const res = await P.turn({ key, model, system, messages: history, tools: TOOLS, noTools: step === MAX_STEPS, thinking: c.thinking || 'mid', signal });
     usage.in += res.usage.in;
     usage.out += res.usage.out;
     if (!res.calls.length && !res.text) throw new AiError('other', 'empty answer'); // 빈 답은 기록에 넣지 않는다 (다음 요청이 거절되지 않게)

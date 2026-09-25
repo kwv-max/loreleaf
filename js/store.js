@@ -73,7 +73,7 @@ export async function initStore({ blocked } = {}) {
   onBlocked = blocked;
   try {
     idb = await new Promise((res, rej) => {
-      const r = indexedDB.open('loreleaf', 3); // 2: 관계(relations), 3: 화별 이전 버전(versions)
+      const r = indexedDB.open('loreleaf', 4); // 2: 관계(relations), 3: 화별 이전 버전(versions), 4: AI 도우미 대화(chats)
       r.onupgradeneeded = () => {
         for (const s of STORES) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s, { keyPath: 'id' });
         // 이전 버전은 쌓이면 무거워서 메모리에 올리지 않고, 볼 때만 화별로 꺼낸다 (versions.js)
@@ -82,6 +82,8 @@ export async function initStore({ blocked } = {}) {
           v.createIndex('chapterId', 'chapterId');
           v.createIndex('workId', 'workId');
         }
+        // AI 도우미 대화도 볼 때만 꺼낸다 (ai/chats.js). 이 기기에만, 백업 파일에는 넣지 않는다.
+        if (!r.result.objectStoreNames.contains('chats')) r.result.createObjectStore('chats', { keyPath: 'id' }).createIndex('workId', 'workId');
       };
       // 저장소 모양이 바뀌는 업데이트 때, 다른 창에 열린 옛 갈피가 붙잡고 있으면 여기서 기다리게 된다
       r.onblocked = () => onBlocked?.();
@@ -269,14 +271,16 @@ export function touchWork(wid) {
 
 // ---- 이전 버전 저장소 (versions.js에서만 쓴다) ----
 export const rawDB = () => idb;
-// 작품이 지워진 이전 버전 치우기 (켤 때 한 번)
+// 작품이 지워진 이전 버전·AI 대화 치우기 (켤 때 한 번)
 function cleanOrphanVersions() {
   if (!idb) return;
-  try {
-    const tx = idb.transaction('versions', 'readwrite');
-    const q = tx.objectStore('versions').openCursor();
-    q.onsuccess = () => { const c = q.result; if (!c) return; if (!db.works.has(c.value.workId)) c.delete(); c.continue(); };
-  } catch {}
+  for (const store of ['versions', 'chats']) {
+    try {
+      const tx = idb.transaction(store, 'readwrite');
+      const q = tx.objectStore(store).openCursor();
+      q.onsuccess = () => { const c = q.result; if (!c) return; if (!db.works.has(c.value.workId)) c.delete(); c.continue(); };
+    } catch {}
+  }
 }
 
 // ---- 백업 ----

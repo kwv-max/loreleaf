@@ -572,4 +572,20 @@ export default {
 
   // ---- AI 도우미: 오류 ----
   'ask.failed': '답을 받지 못했어요: {msg}',
+
+  // ---- AI 도우미: 대화 목록·생각하기 ----
+  'ask.chats': '대화 목록',
+  'ask.chatMenu': '대화 메뉴',
+  'ask.noChats': '저장된 대화가 없어요.',
+  'ask.rename': '대화 이름 바꾸기',
+  'ask.delete': '대화 지우기',
+  'ask.deleted': '대화를 지웠어요.',
+  'ask.think': '생각하기',
+  'ask.think.low': '생각 짧게',
+  'ask.think.mid': '생각 보통',
+  'ask.think.deep': '생각 깊게',
+  'ask.think.lowSub': '빠르고 저렴, 가능하면 생각을 끔',
+  'ask.think.midSub': '필요한 만큼 생각 (기본)',
+  'ask.think.deepSub': '더 꼼꼼하지만 느리고 비쌈',
+  'ask.think.na': '생각하기 없는 모델',
 };

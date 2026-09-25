@@ -570,4 +570,20 @@ export default {
 
   // ---- AI 도우미: 오류 ----
   'ask.failed': '答えを受け取れませんでした：{msg}',
+
+  // ---- AI 도우미: 대화 목록·생각하기 ----
+  'ask.chats': '会話一覧',
+  'ask.chatMenu': '会話メニュー',
+  'ask.noChats': '保存された会話はありません。',
+  'ask.rename': '会話の名前を変更',
+  'ask.delete': '会話を削除',
+  'ask.deleted': '会話を削除しました。',
+  'ask.think': '思考',
+  'ask.think.low': '思考 少なめ',
+  'ask.think.mid': '思考 普通',
+  'ask.think.deep': '思考 深め',
+  'ask.think.lowSub': '速くて安い。できれば思考オフ',
+  'ask.think.midSub': '必要なだけ考える（標準）',
+  'ask.think.deepSub': 'より丁寧だが遅く高い',
+  'ask.think.na': '思考なしのモデル',
 };
