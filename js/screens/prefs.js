@@ -6,6 +6,7 @@ import { supportLinks, supportSheet, feedbackURL } from '../support.js';
 import { back } from '../router.js';
 import { pref, setPref, ACCENTS, applyAccent, applyTheme, applyText, isDark, TEXT_FONTS } from '../prefs.js';
 import { t, LANGS, systemLang, lang } from '../i18n.js';
+import { aiSection } from '../ai/settings.js';
 
 function choice(name, options, onPick) {
   const box = h('div', { class: 'choices', role: 'radiogroup' });
@@ -136,6 +137,7 @@ export function prefsScreen() {
           { value: 'corner', label: t('prefs.quotes.corner'), sample: qs('「', '」', '『', '』') },
         ]),
         h('p', { class: 'muted small' }, t('prefs.quotes.note'))),
+      aiSection(),
       h('section', { class: 'entry-sec' },
         h('h3', null, t('prefs.about')),
         h('div', { class: 'app-info' },

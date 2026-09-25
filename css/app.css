@@ -827,6 +827,7 @@ mark.multi {
 .dd-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dd-ic { width: 16px; height: 16px; flex: none; }
 .dd-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; min-width: 210px; max-width: 80vw; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--line); animation: rise .12s ease-out; }
+.dd-menu { max-height: min(60vh, 440px); overflow-y: auto; }
 .dd-menu.up { top: auto; bottom: calc(100% + 4px); }
 .dd-opt { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px 11px 6px; border-radius: 10px; text-align: left; font-size: 15px; }
 .dd-opt:active, .dd-opt:focus-visible { background: var(--line); outline: none; }
@@ -834,3 +835,15 @@ mark.multi {
 .dd-check { width: 18px; flex: none; text-align: center; }
 .dd-opt-text { display: flex; flex-direction: column; }
 .dd-opt-text small { color: var(--muted); font-weight: 400; }
+
+/* ---------- AI 도우미 설정 ---------- */
+.ai-sec { display: flex; flex-direction: column; gap: 10px; }
+.ai-sec > p { margin: 0; }
+.ai-key-row { display: flex; gap: 8px; }
+.ai-key { flex: 1; min-width: 0; font-size: 15px; }
+.ai-key-row .btn { height: 52px; padding: 0 16px; white-space: nowrap; }
+.ai-status { margin: 0; color: var(--accent); }
+.ai-status.bad { color: var(--danger); }
+.ai-nomodel { padding-right: 10px; }
+.ai-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.ai-links .center { margin-left: auto; }

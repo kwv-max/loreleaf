@@ -3,8 +3,8 @@ export default [
   { id: 'privacy', title: 'Where is my writing?', lines: [
     'Everything you write lives only on this phone (in this browser’s storage). Loreleaf has no server, so your writing never goes anywhere.',
     'There’s no sign-up and no login. Not even the maker can see your writing.',
-    'No AI reads your writing or writes for you.',
-    'Loreleaf was built with the help of AI coding tools. The app itself has no AI features, and your writing is never sent to any AI. The text of the sample work was generated with AI.',
+    'The AI assistant is off by default. Only if you turn it on in Settings and add your own API key are the parts of your manuscript and notes it needs sent to the company you chose (Anthropic, OpenAI or Google), and only when you ask. The key stays on this device. The AI never writes prose for you.',
+    'Loreleaf was built with the help of AI coding tools. Unless you turn on the AI assistant, your writing is never sent to any AI. The text of the sample work was generated with AI.',
     'The internet is only used when the app opens, to check for the latest app files and new versions (you can write without a connection). The host (GitHub) may keep ordinary access logs, but your writing is never sent. Choosing the Serif font downloads the font file from Google once.',
     'That’s why backups matter. If you lose your phone, uninstall the app or clear browser data, your writing goes with it. Save a file now and then from the work list ⋯ → “Save backup file”.',
     'To move to another device, use a backup file too: tap “Load backup file” on the new device.',

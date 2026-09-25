@@ -1,15 +1,15 @@
 {
-  "version": "2026.09.25.12",
+  "version": "2026.09.26.1",
   "notes": [
-    "영어와 일본어를 지원해요. 기본은 휴대폰 언어를 따르고, 환경 설정에서 바꿀 수 있어요.",
-    "언어와 화면 모드는 환경 설정 맨 위에서 고를 수 있어요."
+    "환경 설정에 ‘AI 도우미 (선택)’ 칸이 생겼어요. 기본은 꺼져 있고, 본인의 API 키(Claude·OpenAI·Gemini)로 연결해 모델을 고를 수 있어요.",
+    "묻기 화면은 다음 업데이트에서 생겨요. 키는 이 기기에만 저장돼요."
   ],
   "notes_en": [
-    "Loreleaf now speaks English and Japanese. It follows your phone’s language; change it anytime in Settings.",
-    "In English, lengths are counted in words."
+    "Settings has a new optional “AI assistant” section. It’s off by default; connect your own API key (Claude, OpenAI or Gemini) and pick a model.",
+    "The ask screen comes in the next update. Your key stays on this device."
   ],
   "notes_ja": [
-    "英語と日本語に対応しました。スマホの言語に合わせて表示され、設定でいつでも変えられます。",
-    "日本語ではかぎかっこ「」と日本語フォントが標準になります。"
+    "設定に「AIアシスタント（任意）」が加わりました。最初はオフで、ご自分のAPIキー（Claude・OpenAI・Gemini）で接続してモデルを選べます。",
+    "質問画面は次のアップデートで追加されます。キーはこの端末にだけ保存されます。"
   ]
 }
