@@ -3,7 +3,7 @@
 import { h, sheet } from './ui.js';
 
 export const SUPPORT = [
-  { label: 'Ko-fi', sub: '해외 · 카드/PayPal', url: '' },
+  { label: 'Ko-fi', sub: 'R Leaf Studio · PayPal', url: 'https://ko-fi.com/rleafstudio' },
   { label: '포스타입', sub: '국내', url: '' },
 ];
 
