@@ -72,9 +72,15 @@ export async function initStore({ blocked } = {}) {
   onBlocked = blocked;
   try {
     idb = await new Promise((res, rej) => {
-      const r = indexedDB.open('loreleaf', 2); // 2: 관계(relations) 추가
+      const r = indexedDB.open('loreleaf', 3); // 2: 관계(relations), 3: 화별 이전 버전(versions)
       r.onupgradeneeded = () => {
         for (const s of STORES) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s, { keyPath: 'id' });
+        // 이전 버전은 쌓이면 무거워서 메모리에 올리지 않고, 볼 때만 화별로 꺼낸다 (versions.js)
+        if (!r.result.objectStoreNames.contains('versions')) {
+          const v = r.result.createObjectStore('versions', { keyPath: 'id' });
+          v.createIndex('chapterId', 'chapterId');
+          v.createIndex('workId', 'workId');
+        }
       };
       // 저장소 모양이 바뀌는 업데이트 때, 다른 창에 열린 옛 갈피가 붙잡고 있으면 여기서 기다리게 된다
       r.onblocked = () => onBlocked?.();
@@ -234,6 +240,7 @@ export function deleteFolder(fid) {
 }
 
 export function deleteWork(wid) {
+  deleteVersionsOfWork(wid);
   for (const s of ['chapters', 'entries', 'folders', 'relations']) for (const o of [...db[s].values()]) if (o.workId === wid) del(s, o.id);
   del('works', wid);
 }
@@ -241,6 +248,15 @@ export function deleteWork(wid) {
 export function touchWork(wid) {
   const w = db.works.get(wid);
   if (w) put('works', w);
+}
+
+// ---- 이전 버전 저장소 (versions.js에서만 쓴다) ----
+export const rawDB = () => idb;
+function deleteVersionsOfWork(wid) {
+  if (!idb) return;
+  const tx = idb.transaction('versions', 'readwrite');
+  const q = tx.objectStore('versions').index('workId').openCursor(IDBKeyRange.only(wid));
+  q.onsuccess = () => { const c = q.result; if (c) { c.delete(); c.continue(); } };
 }
 
 // ---- 백업 ----

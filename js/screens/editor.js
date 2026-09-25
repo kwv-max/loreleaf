@@ -2,7 +2,7 @@
 //
 // 구조: 표시용 레이어(.ed-backdrop) 위에 투명 배경 textarea를 겹친다.
 // 형광펜과 대사 따옴표는 뒤 레이어에만 그려지므로 원고 텍스트에는 어떤 서식도 들어가지 않는다.
-import { h, icon, iconBtn, debounce, num, toast, actions, ask, askLong, hintOnce, josa } from '../ui.js';
+import { h, icon, iconBtn, debounce, num, toast, actions, ask, askLong, hintOnce, josa, sheet } from '../ui.js';
 import { db, put, uid, chaptersOf, charactersOf, createChapter, createEntry, stashDraft, clearDraft, touchWork, typeOf, typesOf, iconOf,
   relationsOf, sidesFor, otherOf,
 } from '../store.js';
@@ -16,6 +16,7 @@ import { setSearchQuery } from './search.js';
 import { diffRange, remapRange } from '../anchors.js';
 import { orderOf, valueAt, changesIn, factSheet, setViewAt, linkOf, namedOfType, linkParts } from '../timeline.js';
 import { exportChapter } from './library.js';
+import { snapshot, versionsOf, whenLabel } from '../versions.js';
 
 let jump = null; // 다른 화면에서 "이 위치로 가서 보여줘" 요청 (find가 있으면 찾기 막대도 연다)
 let enterFrom = null; // 화를 넘겨 들어올 때 밀려 들어오는 방향 ('left' | 'right')
@@ -80,6 +81,9 @@ export function editorScreen({ wid, cid }) {
 
   // ---- 저장 ----
   let dirty = false;
+  // 이전 버전: 화를 열 때, 쓰는 중 10분마다, 앱을 내릴 때, 화를 떠날 때 (앞 버전과 같으면 안 남긴다)
+  let lastSnap = Date.now();
+  const snap = () => { lastSnap = Date.now(); return snapshot({ id: ch.id, workId: wid, text: ta.value, quotes: packFlags(flags), notes }); };
   const save = debounce(() => {
     if (!dirty) return;
     dirty = false;
@@ -88,6 +92,7 @@ export function editorScreen({ wid, cid }) {
     ch.notes = notes.map((n) => ({ ...n }));
     put('chapters', ch).then(() => clearDraft(ch.id));
     touchWork(wid);
+    if (Date.now() - lastSnap > 10 * 60 * 1000) snap();
   }, 600);
   const stash = debounce(() => stashDraft(ch.id, ta.value, packFlags(flags), notes), 150);
   const savePos = debounce(() => {
@@ -732,6 +737,58 @@ export function editorScreen({ wid, cid }) {
     openCard(c.id);
   }
 
+  // ---- 이전 버전 ----
+  async function versionsSheet() {
+    await snap(); // 지금 모습도 한 벌 (목록 맨 위 = 지금)
+    const now = { text: ta.value, quotes: packFlags(flags) };
+    const list = (await versionsOf(cid)).filter((v) => v.text !== now.text || JSON.stringify(v.quotes || {}) !== JSON.stringify(now.quotes));
+    const cur = lengthOf(now);
+    const items = list.map((v) => {
+      const d = v.len - cur;
+      return {
+        label: h('span', { class: 'ver-row' },
+          h('span', { class: 'ver-when' }, whenLabel(v.at)),
+          h('span', { class: 'muted small' }, `${num(v.len)}자`, d ? ` · 지금보다 ${d > 0 ? '+' : '−'}${num(Math.abs(d))}` : ' · 글자 수 같음')),
+        run: () => previewVersion(v),
+      };
+    });
+    if (!items.length) items.push({ info: true, label: '아직 이전 버전이 없어요. 쓰는 동안 알아서 모아 둘게요.' });
+    actions(items, `${ch.title} · 이전 버전`);
+  }
+
+  // 그 버전의 글. 지금 글에 없는 문단은 칠해서, 지워진 문단을 찾기 쉽게.
+  function previewVersion(v) {
+    const vflags = flagsOf(v);
+    const nowParas = new Set(ta.value.split('\n').map((l) => l.trim()).filter(Boolean));
+    let gone = 0;
+    const body = h('div', { class: 'ver-text' }, v.text.split('\n').map((line, i) => {
+      const t = line.trim();
+      if (!t) return h('div', { class: 'ver-p blank' }, '\u00a0');
+      const isGone = !nowParas.has(t);
+      if (isGone) gone++;
+      return h('div', { class: 'ver-p' + (isGone ? ' gone' : '') }, wrapLine(line, vflags[i]));
+    }));
+    const s = sheet(h('div', { class: 'ver-sheet' },
+      h('p', { class: 'muted small' }, gone ? `지금 글에 없는 문단 ${gone}개를 칠해 뒀어요. 길게 눌러 일부만 복사할 수도 있어요.` : '길게 눌러 일부만 복사할 수도 있어요.'),
+      body,
+      h('button', { class: 'btn primary', onclick: () => { s.close(); restoreVersion(v); } }, '이 버전으로 되돌리기')),
+    { title: `${whenLabel(v.at)} · ${num(v.len)}자` });
+  }
+
+  // 되돌리기도 실행 취소(↶)로 되돌릴 수 있게 한 걸음으로 묶는다. 되돌리기 직전 모습도 버전으로 남긴다.
+  async function restoreVersion(v) {
+    await snap();
+    asOneStep(() => {
+      ta.value = prevText = v.text;
+      flags = flagsOf(v);
+      notes = (v.notes || []).map((n) => ({ ...n }));
+      paint();
+      if (fb) refreshFind(false);
+      markDirty();
+    });
+    toast(`${whenLabel(v.at)} 버전으로 되돌렸어요.`, { action: '취소', onAction: undo, duration: 6000 });
+  }
+
   // ---- 메뉴 ----
   async function rename() {
     const t = await ask('화 제목', { value: ch.title });
@@ -754,6 +811,7 @@ export function editorScreen({ wid, cid }) {
         : { label: '다음 화 쓰기', run: () => turnTo(createChapter(wid), 'left') },
       { label: nChanges ? `설정 보기 · 이 화에서 바뀐 것 ${nChanges}` : '설정 보기', run: settingsSheet },
       notes.length ? { label: `주석 모아 보기 (${notes.length})`, run: notesSheet } : null,
+      { label: '이전 버전', run: versionsSheet },
       { label: '제목 바꾸기', run: rename },
       { label: '이 화만 텍스트로 내보내기', run: () => { save.flush(); exportChapter(work, ch); } },
       { info: true, label: `공백 포함 ${num(text.length)}자 · 공백 제외 ${num(text.replace(/\s/g, '').length)}자` },
@@ -832,6 +890,7 @@ export function editorScreen({ wid, cid }) {
   // ---- 첫 표시 & 위치 복구 ----
   paint();
   updateCount(); updateCount.flush(); // 처음 글자 수는 바로
+  snap(); // 이번에 쓰기 시작하기 전 모습
   setTimeout(() => {
     if (jump && jump.cid === cid) {
       const { index, len, find } = jump;
@@ -857,12 +916,13 @@ export function editorScreen({ wid, cid }) {
   if (matcher) hintOnce('editor-tap', '색칠된 이름을 탭하면 그 캐릭터의 설정이 떠요.');
 
   const flush = () => { save.flush(); savePos.flush(); };
-  const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+  const onHide = () => { if (document.visibilityState === 'hidden') { flush(); snap(); } };
   document.addEventListener('visibilitychange', onHide);
   window.addEventListener('pagehide', flush);
 
   el.cleanup = () => {
     flush();
+    snap();
     closeCard();
     hideChip();
     wake();

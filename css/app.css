@@ -702,3 +702,12 @@ mark.multi {
 .graph-rel.here .graph-rel-name { color: var(--accent); }
 .graph-entry { margin-bottom: 12px; }
 .sec-head { display: flex; align-items: center; justify-content: space-between; }
+
+/* ---------- 이전 버전 ---------- */
+.ver-row { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.ver-when { font-weight: 600; }
+.ver-sheet { display: flex; flex-direction: column; gap: 10px; }
+.ver-sheet .muted { margin: 0; }
+.ver-text { max-height: 52dvh; overflow: auto; padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.ver-p.blank { line-height: .9; }
+.ver-p.gone { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: -8px 0 0 color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 4px; }
