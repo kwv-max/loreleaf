@@ -3,7 +3,9 @@
 // 창 아래에서 모델과 생각하기를 고른다. 이미 주고받은 대화는 회사를 바꿀 수 없다 (회사마다 기록 모양이 달라서).
 import { h, sheet, confirmBox, autogrow, num, icon, iconBtn, dropdown, actions, ask as askText, toast, relTime } from '../ui.js';
 import { t } from '../i18n.js';
-import { db, chaptersOf, createEntry, put, del, uid } from '../store.js';
+import { db, chaptersOf, createEntry, put, del, uid, touchWork } from '../store.js';
+import { snapshot } from '../versions.js';
+import { diffRange, remapRange } from '../anchors.js';
 import { setChange } from '../timeline.js';
 import { go } from '../router.js';
 import { setJump } from '../screens/editor.js';
@@ -147,6 +149,7 @@ export function openAsk(wid, cid = null) {
   // ---- 제안 카드: '추가'·'반영'을 눌러야 저장된다. 누른 뒤에는 되돌리기 알림 ----
   const chName = (n) => chaptersOf(wid)[n - 1]?.title || t('ask.citeCh', { n });
   function proposalCard(p) {
+    if (p.kind === 'fix') return fixCard(p);
     const done = p.status === 'done', gone = p.status === 'dismissed';
     const body = p.kind === 'entry'
       ? [h('div', { class: 'prop-head' }, t('ask.prop.newEntry', { type: p.typeLabel }), ' · ', h('b', null, p.name)),
@@ -167,9 +170,74 @@ export function openAsk(wid, cid = null) {
     return h('div', { class: 'prop' + (done ? ' done' : '') }, body, reason, foot);
   }
 
+  // ---- 원고 고침 카드: 그 줄의 앞뒤 몇 글자와 함께, 지울 글자와 넣을 글자를 표시 ----
+  const chNum = (p) => chaptersOf(wid).findIndex((c) => c.id === p.chapterId) + 1 || p.chapter;
+  function fixCard(p) {
+    const done = p.status === 'done';
+    if (p.status === 'dismissed') return h('div', { class: 'prop gone muted small' }, `${p.find} → ${p.replace}`, ' — ', t('ask.prop.dismissed'));
+    const n = chNum(p);
+    return h('div', { class: 'prop fix' + (done ? ' done' : '') },
+      h('div', { class: 'prop-head' }, h('b', null, t('ask.fix.head')), ' · ', h('span', { class: 'muted' }, t('ask.cite', { n, line: p.line }))),
+      h('div', { class: 'prop-line fix-line' },
+        p.pre.length === 24 ? '…' : '', p.pre,
+        h('del', { class: 'fix-del' }, p.find), h('ins', { class: 'fix-ins' }, p.replace),
+        p.post, p.post.length === 24 ? '…' : ''),
+      p.reason ? h('div', { class: 'prop-reason muted small' }, inline(p.reason, wid, openCite)) : null,
+      done
+        ? h('div', { class: 'prop-foot' }, h('span', { class: 'prop-done' }, '✓ ', t('ask.fix.done')),
+          h('button', { class: 'link-btn small', onclick: () => viewFix(p) }, t('ask.fix.view')))
+        : h('div', { class: 'prop-foot' },
+          h('button', { class: 'btn ghost inline prop-btn', onclick: () => { p.status = 'dismissed'; saveChat(chat); drawChat(); } }, t('ask.prop.dismiss')),
+          h('button', { class: 'btn primary inline prop-btn', onclick: () => accept(p) }, t('ask.fix.apply'))));
+  }
+
+  // 고칠 자리: 적어 둔 줄에서 먼저 찾고, 줄이 밀렸으면 화 전체에서 한 곳뿐일 때만
+  function fixAt(ch, p, word = p.find) {
+    const lines = ch.text.split('\n');
+    const start = lines.slice(0, p.line - 1).reduce((a, x) => a + x.length + 1, 0);
+    const i = (lines[p.line - 1] || '').indexOf(word);
+    if (i >= 0) return start + i;
+    const first = ch.text.indexOf(word);
+    return first >= 0 && ch.text.indexOf(word, first + 1) < 0 ? first : -1;
+  }
+
+  function viewFix(p) {
+    const ch = db.chapters.get(p.chapterId);
+    if (!ch) return;
+    const at = fixAt(ch, p, p.replace);
+    sh.close();
+    setTimeout(() => { if (at >= 0) setJump(ch.id, at, p.replace.length); go(`/w/${wid}/c/${ch.id}`); }, 200);
+  }
+
+  // 열려 있는 에디터에 알린다 (그 화면이 새 글로 바뀌고, 에디터의 ↶로도 되돌릴 수 있다)
+  const chapterChanged = (cid) => window.dispatchEvent(new CustomEvent('ll-chapter-changed', { detail: { cid } }));
+
   function accept(p) {
     let undo;
-    if (p.kind === 'entry') {
+    if (p.kind === 'fix') {
+      window.dispatchEvent(new Event('ll-flush')); // 에디터에 쓰던 글을 먼저 저장
+      const ch = db.chapters.get(p.chapterId);
+      if (!ch) { toast(t('ask.prop.noChapter')); return; }
+      const at = fixAt(ch, p);
+      if (at < 0) { toast(t('ask.fix.stale')); return; }
+      snapshot(ch); // 고치기 전 모습을 '이전 버전'에 (글을 바로 복사해 두므로 기다리지 않아도 된다)
+      const before = { text: ch.text, notes: (ch.notes || []).map((n) => ({ ...n })) };
+      const text = ch.text.slice(0, at) + p.replace + ch.text.slice(at + p.find.length);
+      const d = diffRange(ch.text, text, at + p.replace.length);
+      ch.notes = before.notes.map((n) => remapRange(n, d));
+      ch.text = text; // 줄바꿈이 없어서 대사 줄 표시는 그대로
+      put('chapters', ch);
+      touchWork(wid);
+      chapterChanged(ch.id);
+      undo = () => {
+        window.dispatchEvent(new Event('ll-flush'));
+        if (ch.text !== text) { toast(t('ask.fix.cantUndo')); return false; } // 그 사이 글을 더 고쳤으면 '이전 버전'으로
+        ch.text = before.text;
+        ch.notes = before.notes;
+        put('chapters', ch);
+        chapterChanged(ch.id);
+      };
+    } else if (p.kind === 'entry') {
       if ([...db.entries.values()].some((e) => e.workId === wid && (e.name === p.name))) { toast(t('ask.prop.exists')); return; }
       const e = createEntry(wid, p.type, { name: p.name });
       e.aliases = p.aliases.slice();
@@ -197,9 +265,9 @@ export function openAsk(wid, cid = null) {
     p.status = 'done';
     saveChat(chat);
     drawChat();
-    toast(p.kind === 'entry' ? t('ask.prop.added') : t('ask.prop.applied'), {
+    toast(p.kind === 'entry' ? t('ask.prop.added') : p.kind === 'fix' ? t('ask.fix.done') : t('ask.prop.applied'), {
       action: t('common.undo'),
-      onAction: () => { undo(); p.status = null; saveChat(chat); if (view === 'chat') drawChat(); toast(t('ask.prop.undone')); },
+      onAction: () => { if (undo() === false) return; p.status = null; saveChat(chat); if (view === 'chat') drawChat(); toast(t('ask.prop.undone')); },
     });
   }
 

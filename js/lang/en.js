@@ -612,4 +612,12 @@ export default {
   'ask.chip.check': 'Where it contradicts my notes',
   'ask.q.checkHere': 'Compare this chapter’s text with my notes (every entry — characters, places, items and so on — as of this chapter) and find where they disagree.',
   'ask.q.check': 'Go through the manuscript chapter by chapter and compare it with my notes (every entry — characters, places, items and so on) to find where they disagree.',
+
+  // ---- AI 도우미: 원고 고침 ----
+  'ask.fix.head': 'Text fix',
+  'ask.fix.apply': 'Fix',
+  'ask.fix.done': 'Fixed',
+  'ask.fix.view': 'View',
+  'ask.fix.stale': 'The text has changed since, so the spot couldn’t be found.',
+  'ask.fix.cantUndo': 'You edited the chapter since, so it wasn’t undone. The version before the fix is in “Previous versions”.',
 };

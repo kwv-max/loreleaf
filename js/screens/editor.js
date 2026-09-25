@@ -978,6 +978,19 @@ export function editorScreen({ wid, cid }) {
   document.addEventListener('visibilitychange', onHide);
   window.addEventListener('pagehide', flush);
   window.addEventListener('ll-flush', flush); // 저장소를 닫기 직전 (업데이트 등)
+  // AI 도우미의 원고 고침을 반영했을 때 (ai/ask.js): 화면을 새 글로. ↶ 한 번으로 되돌릴 수 있게 한 걸음으로
+  const onChanged = (e) => {
+    if (e.detail?.cid !== cid || ch.text === ta.value) return;
+    asOneStep(() => {
+      ta.value = prevText = ch.text;
+      flags = flagsOf(ch);
+      notes = (ch.notes || []).map((n) => ({ ...n }));
+      paint();
+      if (fb) refreshFind(false);
+      markDirty();
+    });
+  };
+  window.addEventListener('ll-chapter-changed', onChanged);
 
   el.cleanup = () => {
     flush();
@@ -993,6 +1006,7 @@ export function editorScreen({ wid, cid }) {
     document.removeEventListener('keydown', onKeyFind);
     window.removeEventListener('pagehide', flush);
     window.removeEventListener('ll-flush', flush);
+    window.removeEventListener('ll-chapter-changed', onChanged);
     window.removeEventListener('touchmove', wake);
     window.removeEventListener('scroll', savePos);
   };
