@@ -106,6 +106,7 @@ export function libraryScreen() {
     topbar({ title: '갈피', right: [iconBtn('help', '도움말', () => go('/help')), iconBtn('more', '메뉴', appMenu)] }),
     h('main', { class: 'content' },
       updateTip(),
+      backupTip(),
       iosInstallTip(),
       resume,
       works.length ? h('h2', { class: 'section' }, '작품') : null,
@@ -137,4 +138,46 @@ function updateTip() {
       h('b', null, '새 버전이 있어요'),
       v.notes?.[0] ? h('p', null, v.notes[0] + (v.notes.length > 1 ? ` 외 ${v.notes.length - 1}가지` : '')) : null),
     h('span', { class: 'update-go' }, '업데이트'));
+}
+
+// 백업 알림: 마지막 백업 뒤로 글이 바뀌었고 7일이 지났을 때 (한 번도 안 했으면 글이 좀 쌓였을 때만).
+// 누르면 정해 둔 파일에 바로 덮어쓴다. 닫으면 사흘 동안 조용히.
+const DAY = 24 * 3600 * 1000;
+function backupTip() {
+  let snooze = 0;
+  try { snooze = +localStorage.getItem('ll:backup-snooze') || 0; } catch {}
+  if (Date.now() < snooze) return null;
+  const mine = [...db.works.values()].filter((w) => !w.sample);
+  if (!mine.length) return null;
+  const last = lastBackup();
+  const changed = Math.max(...mine.map((w) => w.updatedAt || 0));
+  if (last) {
+    if (changed <= last.at || Date.now() - last.at < 7 * DAY) return null;
+  } else {
+    const ids = new Set(mine.map((w) => w.id));
+    const chars = [...db.chapters.values()].reduce((n, c) => n + (ids.has(c.workId) ? c.text.length : 0), 0);
+    if (chars < 1000) return null;
+  }
+  const days = last ? Math.floor((Date.now() - last.at) / DAY) : 0;
+  const el = h('div', { class: 'backup-tip' },
+    icon('note', 'type-ic'),
+    h('div', null,
+      h('b', null, last ? `마지막 백업 ${days}일 전` : '아직 백업한 적이 없어요'),
+      h('p', null, '글은 이 기기에만 있어요. 가끔 파일로 남겨 두면 안심이에요.')),
+    h('button', {
+      class: 'update-go',
+      onclick: async () => {
+        try {
+          const name = await saveBackup();
+          if (!name) return;
+          toast(canOverwrite() ? `‘${name}’에 백업했어요.` : `‘${name}’로 내려받았어요.`);
+          el.remove();
+        } catch (e) { toast(e.message || '백업하지 못했어요.'); }
+      },
+    }, '지금 백업'),
+    h('button', {
+      class: 'icon-btn sm', 'aria-label': '사흘 동안 숨기기',
+      onclick: () => { try { localStorage.setItem('ll:backup-snooze', String(Date.now() + 3 * DAY)); } catch {} el.remove(); },
+    }, icon('close')));
+  return el;
 }

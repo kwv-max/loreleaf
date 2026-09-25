@@ -348,13 +348,25 @@ export function editorScreen({ wid, cid }) {
         class: 'find-all',
         onclick: () => { setSearchQuery(fb.q); go(`/w/${wid}/search`); },
       }, '작품 전체에서 찾기', icon('chev'));
+      // 바꾸기: 필요할 때만 펼친다
+      const rep = h('input', { class: 'find-input', type: 'text', placeholder: '바꿀 말', enterkeyhint: 'done', 'aria-label': '바꿀 말' });
+      const repRow = h('div', { class: 'findbar replace-row', hidden: true },
+        rep,
+        h('button', { class: 'rep-btn', onclick: () => replaceCur(rep.value) }, '바꾸기'),
+        h('button', { class: 'rep-btn', onclick: () => replaceAll(rep.value) }, '모두'));
+      rep.addEventListener('keydown', (e) => { if (!e.isComposing && e.key === 'Enter') { e.preventDefault(); replaceCur(rep.value); } });
+      const repToggle = h('button', {
+        class: 'find-all rep-toggle',
+        onclick: () => { repRow.hidden = !repRow.hidden; repToggle.classList.toggle('on', !repRow.hidden); if (!repRow.hidden) setTimeout(() => rep.focus(), 30); },
+      }, '바꾸기');
       const box = h('div', { class: 'findbox' },
         h('div', { class: 'findbar' },
           input, cnt,
           iconBtn('up', '이전', () => step(-1)),
           iconBtn('down', '다음', () => step(1)),
           iconBtn('close', '찾기 닫기', closeFind)),
-        all);
+        repRow,
+        h('div', { class: 'find-links' }, repToggle, all));
       input.addEventListener('input', () => { fb.q = input.value; refreshFind(true); });
       input.addEventListener('keydown', (e) => {
         if (e.isComposing) return;
@@ -362,7 +374,7 @@ export function editorScreen({ wid, cid }) {
         if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
       });
       top.append(box);
-      fb = { box, input, count: cnt, all, q: '', hits: [], cur: -1, release: interceptBack(closeFind) };
+      fb = { box, input, count: cnt, all, repToggle, q: '', hits: [], cur: -1, release: interceptBack(closeFind) };
     }
     fb.input.value = fb.q = q;
     refreshFind(true, targetIndex);
@@ -385,6 +397,30 @@ export function editorScreen({ wid, cid }) {
     if (!fb) return;
     fb.count.textContent = !has ? '' : fb.hits.length ? `${fb.cur + 1}/${fb.hits.length}` : '없음';
     fb.all.hidden = !has;
+    fb.repToggle.hidden = !has;
+  }
+  // 바꾸기: 지금 칠해진 것 하나 / 이 화 전부. 실행 취소(↶) 한 번으로 되돌릴 수 있다.
+  // 글을 바꾸면 input 이벤트가 대사 줄 표시와 주석 위치를 알아서 옮긴다.
+  function replaceAt(list, to) {
+    for (let k = list.length - 1; k >= 0; k--) {
+      const x = list[k];
+      ta.setRangeText(to, x.index, x.index + x.len, 'end');
+      ta.dispatchEvent(new Event('input'));
+    }
+  }
+  function replaceCur(to) {
+    if (!fb?.hits.length || fb.cur < 0) return;
+    const x = fb.hits[fb.cur];
+    asOneStep(() => replaceAt([x], to));
+    refreshFind(false);
+    if (fb.hits.length) { fb.cur = fb.hits.findIndex((y) => y.index >= x.index + to.length); if (fb.cur < 0) fb.cur = 0; paintFind(); revealCur(); }
+  }
+  function replaceAll(to) {
+    if (!fb?.hits.length) return;
+    const n = fb.hits.length;
+    asOneStep(() => replaceAt(fb.hits.slice(), to));
+    refreshFind(false);
+    toast(`${n}곳을 바꿨어요.`, { action: '되돌리기', onAction: () => { undo(); if (fb) refreshFind(false); } });
   }
   function step(d) {
     if (!fb?.hits.length) return;

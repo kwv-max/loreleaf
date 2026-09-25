@@ -711,3 +711,25 @@ mark.multi {
 .ver-text { max-height: 52dvh; overflow: auto; padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
 .ver-p.blank { line-height: .9; }
 .ver-p.gone { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: -8px 0 0 color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 4px; }
+
+/* ---------- 이름 한 번에 바꾸기 ---------- */
+.rename-sheet { display: flex; flex-direction: column; gap: 10px; }
+.rename-sheet p { margin: 0; }
+.rename-sum { font-size: 17px; font-weight: 700; }
+.rename-samples { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); font-size: 14px; line-height: 1.5; }
+.rename-samples mark.hit { color: inherit; background: color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 3px; box-shadow: none; padding: 0 1px; }
+.rename-warn { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); font-size: 13px; }
+
+.find-links { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.find-links .find-all { margin: 6px 4px 0 0; }
+.rep-toggle.on { color: var(--ink-2); }
+.replace-row { margin-top: 6px; }
+.replace-row[hidden] { display: none; }
+.rep-btn { flex: none; height: 32px; padding: 0 12px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: 14px; font-weight: 700; margin-left: 4px; }
+
+/* 백업 알림 */
+.backup-tip { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 6px 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.backup-tip > div { flex: 1; min-width: 0; }
+.backup-tip b { font-size: 15px; }
+.backup-tip p { margin: 2px 0 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.backup-tip .type-ic { color: var(--accent); }

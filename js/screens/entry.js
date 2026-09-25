@@ -9,6 +9,7 @@ import { appearances } from '../highlight.js';
 import { go, back } from '../router.js';
 import { emit } from '../guide.js';
 import { setJump } from './editor.js';
+import { mentions, replaceEverywhere } from '../rename.js';
 import { moveToFolder } from './lore.js';
 import {
   orderOf, valueAt, historyOf, hasChanges, removeChange, factSheet, pruneSame,
@@ -34,6 +35,44 @@ export function entryScreen({ wid, eid }) {
     enterkeyhint: 'next', 'aria-label': '이름',
     oninput: () => { e.name = name.value; save(); checkGuide(); },
   });
+
+  // ---- 이름을 바꾸면: 본문과 다른 설정에 나온 옛 이름도 바꿀지 묻는다 ----
+  let nameBefore = e.name.trim();
+  function askRename() {
+    const from = nameBefore, to = e.name.trim();
+    if (!from || !to || from === to) return;
+    nameBefore = to;
+    const m = mentions(wid, from, to);
+    if (!m.total) return;
+    const shared = [...db.entries.values()].some((o) => o !== e && o.workId === wid && (o.name.trim() === from || o.aliases?.includes(from)));
+    const chLines = m.chapters.slice(0, 4).map(({ c, n }) => `${c.title} ${n}곳`);
+    if (m.chapters.length > 4) chLines.push(`외 ${m.chapters.length - 4}개 화`);
+    let done = false;
+    const s = sheet(h('div', { class: 'rename-sheet' },
+      h('p', { class: 'rename-sum' },
+        m.inText ? `본문 ${m.inText}곳` : null, m.inText && m.settings ? ' · ' : null, m.settings ? `설정 ${m.settings}곳` : null),
+      chLines.length ? h('p', { class: 'muted small' }, chLines.join(' · ')) : null,
+      m.samples.length ? h('div', { class: 'rename-samples' }, m.samples.map((x) => h('div', null, x.before, h('mark', { class: 'hit' }, x.hit), x.after))) : null,
+      h('p', { class: 'muted small' },
+        '다른 말 속에 든 경우(예: ‘미로처럼’)도 함께 바뀌어요. 이름 뒤 조사(은/는, 이/가 …)는 새 이름에 맞춰 고쳐요. 바꾸기 전 모습은 화마다 ‘이전 버전’에 남아요.'),
+      shared ? h('p', { class: 'rename-warn' }, `‘${from}’${josa(from, '은', '는')} 다른 설정도 쓰는 이름이에요. 그쪽 이름도 함께 바뀌니 조심하세요.`) : null,
+      h('button', {
+        class: 'btn primary',
+        onclick: async () => {
+          done = true;
+          s.close();
+          const r = await replaceEverywhere(wid, from, to);
+          drawFields(); drawRelations(); drawMentions();
+          toast(`${r.count}곳을 ‘${to}’${josa(to, '으로', '로')} 바꿨어요.`, {
+            action: '되돌리기', duration: 8000,
+            onAction: () => { r.undo(); drawFields(); drawRelations(); drawMentions(); toast('바꾸기 전으로 돌렸어요.'); },
+          });
+        },
+      }, `모두 바꾸기 (${m.total}곳)`),
+      h('button', { class: 'link-btn center', onclick: () => s.close() }, '본문은 그대로 두기')),
+    { title: `‘${from}’ → ‘${to}’, 다른 곳도 바꿀까요?`, onClose: () => { if (!done) nameBefore = to; } });
+  }
+  name.addEventListener('change', askRename); // 이름 칸을 벗어날 때
 
   // ---- 별명 (캐릭터) ----
   const aliasBox = isChar ? h('div', { class: 'chips' }) : null;
@@ -556,6 +595,8 @@ export function entryScreen({ wid, eid }) {
     closeSel();
     if (!db.entries.has(e.id)) return; // 이미 지운 설정은 다시 저장하지 않는다
     save.flush();
+    // 이름을 바꾸고 칸을 벗어나기 전에 화면을 떠났으면, 다음 화면에서 묻는다
+    if (e.name.trim() && nameBefore && e.name.trim() !== nameBefore) setTimeout(askRename, 80);
     const blank = !e.name.trim() && !e.aliases.length && !e.note.trim() && !e.fields.some((f) => f.value.trim());
     if (blank && db.entries.has(e.id)) { del('entries', e.id); removeRelationsOf(e.id); }
   };
