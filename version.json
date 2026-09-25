@@ -1,15 +1,15 @@
 {
-  "version": "2026.09.26.1",
+  "version": "2026.09.26.2",
   "notes": [
-    "환경 설정에 ‘AI 도우미 (선택)’ 칸이 생겼어요. 기본은 꺼져 있고, 본인의 API 키(Claude·OpenAI·Gemini)로 연결해 모델을 고를 수 있어요.",
-    "묻기 화면은 다음 업데이트에서 생겨요. 키는 이 기기에만 저장돼요."
+    "AI 도우미에게 물어볼 수 있어요. 켜 두면 작품 화면 위쪽 말풍선 버튼이나 에디터 ⋯ 메뉴에서 열려요.",
+    "도우미는 필요한 화와 설정만 읽고 답해요. 답 속 ‘3화 12줄’ 같은 표시를 누르면 그 자리로 가요. 글을 새로 써 주지는 않아요."
   ],
   "notes_en": [
-    "Settings has a new optional “AI assistant” section. It’s off by default; connect your own API key (Claude, OpenAI or Gemini) and pick a model.",
-    "The ask screen comes in the next update. Your key stays on this device."
+    "You can now ask the AI assistant. When it’s on, open it from the speech-bubble button on a work or the editor ⋯ menu.",
+    "It reads only the chapters and notes it needs. Tap a reference like “Ch.3 L12” to jump there. It never writes prose for you."
   ],
   "notes_ja": [
-    "設定に「AIアシスタント（任意）」が加わりました。最初はオフで、ご自分のAPIキー（Claude・OpenAI・Gemini）で接続してモデルを選べます。",
-    "質問画面は次のアップデートで追加されます。キーはこの端末にだけ保存されます。"
+    "AIアシスタントに質問できるようになりました。オンにすると、作品画面上部の吹き出しボタンやエディタの ⋯ メニューから開けます。",
+    "必要な話と設定だけを読んで答えます。答えの中の「3話12行」のような印をタップするとその場所へ移動します。文章を代わりに書くことはありません。"
   ]
 }

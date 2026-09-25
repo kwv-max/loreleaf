@@ -7,6 +7,7 @@ import { countOf } from '../quotes.js';
 import { setViewAt } from '../timeline.js';
 import { atBanner } from './lore.js';
 import { t, chapterNumOf, renumberTitle } from '../i18n.js';
+import { openAsk, aiReady } from '../ai/ask.js';
 
 function tabs(wid, active) {
   const tab = (key, label, to) => h('button', {
@@ -25,6 +26,7 @@ function shell(w, active, body, bottom) {
       onBack: () => back('/'),
       title: w.title,
       right: [
+        aiReady() ? iconBtn('speech', t('ask.open'), () => openAsk(w.id)) : null,
         iconBtn('search', t('work.search'), () => go(`/w/${w.id}/search`)),
         iconBtn('more', t('lib.workMenu'), () => workMenu(w, { onDeleted: () => go('/', { replace: true }) })),
       ],

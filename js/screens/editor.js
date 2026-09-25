@@ -6,7 +6,7 @@ import { h, icon, iconBtn, debounce, num, toast, actions, ask, askLong, hintOnce
 import { db, put, uid, chaptersOf, charactersOf, createChapter, createEntry, stashDraft, clearDraft, touchWork, typeOf, typesOf, iconOf,
   relationsOf, sidesFor, otherOf,
 } from '../store.js';
-import { buildMatcher, highlightHTML, appearances, findAll, findHTML, notesHTML } from '../highlight.js';
+import { buildMatcher, highlightHTML, appearances, findAll, findHTML, notesHTML, rangeHTML } from '../highlight.js';
 import { go, back, interceptBack } from '../router.js';
 import { emit } from '../guide.js';
 import { lineSwipe } from '../swipe.js';
@@ -19,6 +19,7 @@ import { exportChapter, serialCopy } from './library.js';
 import { snapshot, versionsOf, whenLabel } from '../versions.js';
 import { noteOpen, noteSave, todayCount } from '../today.js';
 import { t as tr } from '../i18n.js';
+import { openAsk, aiReady } from '../ai/ask.js';
 
 let jump = null; // 다른 화면에서 "이 위치로 가서 보여줘" 요청 (find가 있으면 찾기 막대도 연다)
 let enterFrom = null; // 화를 넘겨 들어올 때 밀려 들어오는 방향 ('left' | 'right')
@@ -858,6 +859,7 @@ export function editorScreen({ wid, cid }) {
       { label: nChanges ? tr('ed.viewSettingsN', { n: nChanges }) : tr('ed.viewSettings'), run: settingsSheet },
       notes.length ? { label: tr('ed.notesAll', { n: notes.length }), run: notesSheet } : null,
       { label: tr('ed.versions'), run: versionsSheet },
+      aiReady() ? { label: tr('ask.title'), run: () => { save.flush(); openAsk(wid, cid); } } : null,
       { label: tr('lib.renameTitle'), run: rename },
       { label: tr('work.serialCopy'), run: () => { save.flush(); serialCopy(ch); } },
       { label: tr('work.exportChapter'), run: () => { save.flush(); exportChapter(work, ch); } },
@@ -946,10 +948,17 @@ export function editorScreen({ wid, cid }) {
       jump = null;
       if (find) { openFind(find, index); return; }
       const m = backdrop.querySelector(`mark[data-i="${index}"]`);
-      if (m) {
+      if (m && len <= m.textContent.length) { // 이름 자리면 이름을 반짝
         m.scrollIntoView({ block: 'center' });
         m.classList.add('flash');
         setTimeout(() => m.classList.remove('flash'), 1800);
+      } else if (len) {
+        // 이름 표시가 없는 자리(한 줄 전체 등): 찾기 층에 잠깐 칠해서 보여 준다
+        findLayer.innerHTML = rangeHTML(ta.value, index, len);
+        revealCur();
+        setTimeout(() => { if (!fb) findLayer.innerHTML = ''; }, 2400);
+        ta.setSelectionRange(index, index);
+        return;
       }
       ta.setSelectionRange(index + len, index + len);
       return;

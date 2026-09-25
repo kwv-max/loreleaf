@@ -85,6 +85,18 @@ export function findHTML(text, query, cur = -1) {
   }).join('');
 }
 
+// 한 구간만 칠하기 (AI 도우미의 '3화 12줄'처럼 다른 곳에서 그 자리를 가리킬 때). 찾기 층에 잠깐 그린다.
+export function rangeHTML(text, from, len) {
+  let pos = 0;
+  return text.split('\n').map((p) => {
+    const a = Math.max(0, from - pos), b = Math.min(p.length, from + len - pos);
+    const inner = a < b ? esc(p.slice(0, a)) + `<mark class="hit cur">${esc(p.slice(a, b))}</mark>` + esc(p.slice(b)) : esc(p);
+    const html = block(pos, inner, 0);
+    pos += p.length + 1;
+    return html;
+  }).join('');
+}
+
 // ---- 주석 ----
 // 주석이 달린 글자 구간을 점선 밑줄로. 겹치면 나중에 단 주석이 위.
 export function notesHTML(text, notes) {
