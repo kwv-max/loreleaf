@@ -1,15 +1,12 @@
 {
-  "version": "2026.09.26.2",
+  "version": "2026.09.26.3",
   "notes": [
-    "AI 도우미에게 물어볼 수 있어요. 켜 두면 작품 화면 위쪽 말풍선 버튼이나 에디터 ⋯ 메뉴에서 열려요.",
-    "도우미는 필요한 화와 설정만 읽고 답해요. 답 속 ‘3화 12줄’ 같은 표시를 누르면 그 자리로 가요. 글을 새로 써 주지는 않아요."
+    "AI 도우미가 빈 답을 주면 알아서 다시 물어봐요. 그래도 안 되면 이유를 보여 줘요."
   ],
   "notes_en": [
-    "You can now ask the AI assistant. When it’s on, open it from the speech-bubble button on a work or the editor ⋯ menu.",
-    "It reads only the chapters and notes it needs. Tap a reference like “Ch.3 L12” to jump there. It never writes prose for you."
+    "If the AI assistant comes back empty, it now retries on its own, and shows why if it still fails."
   ],
   "notes_ja": [
-    "AIアシスタントに質問できるようになりました。オンにすると、作品画面上部の吹き出しボタンやエディタの ⋯ メニューから開けます。",
-    "必要な話と設定だけを読んで答えます。答えの中の「3話12行」のような印をタップするとその場所へ移動します。文章を代わりに書くことはありません。"
+    "AIアシスタントの答えが空だったときは自動でもう一度聞き直し、それでもだめなら理由を表示します。"
   ]
 }

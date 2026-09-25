@@ -567,4 +567,7 @@ export default {
   'ask.refused': 'この質問には答えませんでした。聞き方を変えてみてください。',
   'ask.cite': '{n}話{line}行',
   'ask.citeCh': '{n}話',
+
+  // ---- AI 도우미: 오류 ----
+  'ask.failed': '答えを受け取れませんでした：{msg}',
 };

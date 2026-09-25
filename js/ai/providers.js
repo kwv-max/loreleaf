@@ -146,29 +146,36 @@ export const PROVIDERS = {
         .map((m) => ({ id: m.id, label: m.displayName || m.id }));
     },
     async turn({ key, model, system, messages, tools, noTools = false, signal }) {
-      const res = await callJSON(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        headers: { 'x-goog-api-key': key }, signal,
-        body: {
-          systemInstruction: { parts: [{ text: system }] },
-          ...(noTools ? { toolConfig: { functionCallingConfig: { mode: 'NONE' } } } : {}),
-          tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, ...(schema(t, true) ? { parameters: schema(t, true) } : {}) })) }],
-          contents: messages.map((m) => {
-            if (m.role === 'user') return { role: 'user', parts: [{ text: m.text }] };
-            if (m.role === 'assistant') return m.raw; // 생각 서명(thoughtSignature)까지 그대로 돌려보내야 한다
-            return { role: 'user', parts: m.results.map((r) => ({ functionResponse: { name: r.name, ...(r.gid ? { id: r.gid } : {}), response: r.error ? { error: r.output } : { result: r.output } } })) };
-          }),
-        },
-      });
-      const cand = res.candidates?.[0];
-      if (!cand) throw new AiError(res.promptFeedback?.blockReason ? 'refused' : 'other', res.promptFeedback?.blockReason || 'empty response');
-      const parts = cand.content?.parts || [];
-      if (!parts.length && /SAFETY|PROHIBITED|BLOCKLIST|RECITATION/.test(cand.finishReason || '')) throw new AiError('refused', cand.finishReason);
-      const calls = parts.filter((p) => p.functionCall).map((p, i) => ({ id: `g${i}`, gid: p.functionCall.id, name: p.functionCall.name, input: p.functionCall.args || {} }));
-      return {
-        text: parts.filter((p) => p.text && !p.thought).map((p) => p.text).join('').trim(), calls,
-        raw: { role: 'model', parts: parts.length ? parts : [{ text: '' }] },
-        usage: { in: res.usageMetadata?.promptTokenCount || 0, out: (res.usageMetadata?.candidatesTokenCount || 0) + (res.usageMetadata?.thoughtsTokenCount || 0) },
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+      const body = {
+        systemInstruction: { parts: [{ text: system }] },
+        ...(noTools ? { toolConfig: { functionCallingConfig: { mode: 'NONE' } } } : {}),
+        tools: [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, ...(schema(t, true) ? { parameters: schema(t, true) } : {}) })) }],
+        contents: messages.map((m) => {
+          if (m.role === 'user') return { role: 'user', parts: [{ text: m.text }] };
+          if (m.role === 'assistant') return m.raw; // 생각 서명(thoughtSignature)까지 그대로 돌려보내야 한다
+          return { role: 'user', parts: m.results.map((r) => ({ functionResponse: { name: r.name, ...(r.gid ? { id: r.gid } : {}), response: r.error ? { error: r.output } : { result: r.output } } })) };
+        }),
       };
+      const usage = { in: 0, out: 0 };
+      // 가벼운 모델은 도구 호출 모양을 가끔 망가뜨리거나(MALFORMED_FUNCTION_CALL) 아무것도 없이 끝낸다. 그럴 땐 두 번까지 다시.
+      for (let attempt = 0; ; attempt++) {
+        const res = await callJSON(url, { headers: { 'x-goog-api-key': key }, signal, body });
+        usage.in += res.usageMetadata?.promptTokenCount || 0;
+        usage.out += (res.usageMetadata?.candidatesTokenCount || 0) + (res.usageMetadata?.thoughtsTokenCount || 0);
+        const cand = res.candidates?.[0];
+        if (!cand) throw new AiError(res.promptFeedback?.blockReason ? 'refused' : 'other', res.promptFeedback?.blockReason || 'empty response');
+        const parts = cand.content?.parts || [];
+        const why = cand.finishReason || '';
+        const calls = parts.filter((p) => p.functionCall).map((p, i) => ({ id: `g${i}`, gid: p.functionCall.id, name: p.functionCall.name, input: p.functionCall.args || {} }));
+        const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join('').trim();
+        if (!calls.length && !text) {
+          if (/SAFETY|PROHIBITED|BLOCKLIST|RECITATION|SPII/.test(why)) throw new AiError('refused', why);
+          if (attempt < 2) continue;
+          throw new AiError('other', `empty answer${why ? ` (${why})` : ''}`);
+        }
+        return { text, calls, raw: { role: 'model', parts }, usage };
+      }
     },
   },
 };

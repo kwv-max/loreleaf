@@ -44,6 +44,7 @@ export async function ask({ wid, cid = null, history, question, onStep, signal }
     const res = await P.turn({ key, model, system, messages: history, tools: TOOLS, noTools: step === MAX_STEPS, signal });
     usage.in += res.usage.in;
     usage.out += res.usage.out;
+    if (!res.calls.length && !res.text) throw new AiError('other', 'empty answer'); // 빈 답은 기록에 넣지 않는다 (다음 요청이 거절되지 않게)
     history.push({ role: 'assistant', text: res.text, calls: res.calls, raw: res.raw });
     if (!res.calls.length) return { text: res.text, usage, model };
     const results = res.calls.map((call) => {

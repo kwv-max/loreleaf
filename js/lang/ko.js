@@ -569,4 +569,7 @@ export default {
   'ask.refused': '이 질문에는 답하지 않았어요. 다르게 물어봐 주세요.',
   'ask.cite': '{n}화 {line}줄',
   'ask.citeCh': '{n}화',
+
+  // ---- AI 도우미: 오류 ----
+  'ask.failed': '답을 받지 못했어요: {msg}',
 };

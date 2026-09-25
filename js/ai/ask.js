@@ -83,7 +83,7 @@ export async function openAsk(wid, cid = null) {
     } catch (e) {
       const kind = e instanceof AiError ? e.kind : 'other';
       it.error = kind === 'aborted' ? t('ask.stopped') : kind === 'key' ? t('ai.badKey') : kind === 'network' ? t('ai.network')
-        : kind === 'refused' ? t('ask.refused') : t('ai.error', { msg: e.message });
+        : kind === 'refused' ? t('ask.refused') : t('ask.failed', { msg: e.message });
     }
     it.step = null;
     running = null;

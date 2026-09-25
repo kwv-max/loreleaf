@@ -567,4 +567,7 @@ export default {
   'ask.refused': 'The model declined to answer. Try asking differently.',
   'ask.cite': 'Ch.{n} L{line}',
   'ask.citeCh': 'Ch.{n}',
+
+  // ---- AI 도우미: 오류 ----
+  'ask.failed': 'No answer came back: {msg}',
 };
