@@ -1,15 +1,15 @@
 {
-  "version": "2026.09.26.9",
+  "version": "2026.09.26.10",
   "notes": [
-    "AI 도우미가 원고에서 설정과 어긋난 이름·숫자 같은 걸 ‘원고 고침’ 카드로 알려 줘요.",
-    "한 줄 안에서 틀린 낱말만 바꾸는 제안이고, ‘고치기’를 눌러야 바뀌어요. 고치기 전 모습은 ‘이전 버전’에 남아요."
+    "AI 도우미 입력창 왼쪽 클립 버튼으로 이 화, 회차 범위, 설정 항목·분류를 질문에 미리 붙일 수 있어요.",
+    "붙일 분량(글자 수)이 함께 보여요. 길수록 요금이 늘어요."
   ],
   "notes_en": [
-    "The AI assistant can now flag names, numbers and similar details in your text that contradict your notes, as “Text fix” cards.",
-    "A fix only swaps the wrong words within one line and applies only when you tap “Fix”. The text before it stays in “Previous versions”."
+    "Use the paperclip left of the AI assistant’s input to attach this chapter, a range of chapters, or notes and categories to your question.",
+    "It shows how much text you are attaching; longer costs more."
   ],
   "notes_ja": [
-    "AIアシスタントが、本文の中で設定と食い違う名前や数字などを「原稿の修正」カードで知らせるようになりました。",
-    "1行の中で間違った語だけを置き換える提案で、「直す」を押したときだけ反映されます。直す前の状態は「以前のバージョン」に残ります。"
+    "AIアシスタントの入力欄の左のクリップボタンで、この話・話の範囲・設定項目や分類を質問に添えられるようになりました。",
+    "添える分量（字数）も表示されます。長いほど料金が増えます。"
   ]
 }

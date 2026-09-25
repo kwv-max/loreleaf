@@ -869,7 +869,7 @@ mark.multi {
 @keyframes askpulse { from { opacity: .25; } }
 .ask-error { color: var(--danger); }
 .ask-usage { font-size: 11px; }
-.ask-bar { display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 22px; background: var(--bg); border: 1px solid var(--line); }
+.ask-bar { display: flex; align-items: flex-end; gap: 6px; padding: 6px 6px 6px 4px; border-radius: 22px; background: var(--bg); border: 1px solid var(--line); }
 .ask-input { flex: 1; min-width: 0; max-height: 30dvh; border: 0; outline: 0; background: none; resize: none; font-size: 16px; line-height: 1.5; padding: 6px 0; }
 .ask-send { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); }
 .ask-send .ic { width: 20px; height: 20px; }
@@ -901,3 +901,30 @@ mark.multi {
 .fix-line { font-family: var(--ed-font, var(--font)); }
 .fix-del { color: var(--muted); text-decoration: line-through; }
 .fix-ins { text-decoration: none; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 4px; padding: 0 2px; margin-left: 2px; }
+/* 첨부 */
+.ask-attach { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+.ask-attach .ic { width: 20px; height: 20px; }
+.ask-attach:active { background: var(--line); }
+.ask-att { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.att-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 4px 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; }
+.att-chip .ic { width: 14px; height: 14px; flex: none; }
+.att-chip-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att-x { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: inherit; }
+.att-x .ic { width: 14px; height: 14px; }
+.att-size { margin: 0; font-size: 12px; }
+.att-size.big { color: var(--danger); }
+.ask-q-att { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.att-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--accent); }
+.att-tag .ic { width: 12px; height: 12px; }
+.att-sheet { display: flex; flex-direction: column; gap: 12px; }
+.att-range { display: flex; flex-direction: column; gap: 10px; }
+.att-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.att-field .dd { min-width: 0; }
+.att-list { display: flex; flex-direction: column; max-height: 52dvh; overflow-y: auto; }
+.att-row { display: flex; align-items: center; gap: 10px; padding: 11px 8px; border-radius: 10px; text-align: left; font-size: 15px; }
+.att-row:active { background: var(--line); }
+.att-row.att-type { font-weight: 600; margin-top: 6px; }
+.att-row.dim { opacity: .55; }
+.att-check { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--line); display: grid; place-items: center; font-size: 13px; color: var(--accent-ink); }
+.att-row.on .att-check { background: var(--accent); border-color: var(--accent); }
+.att-row-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

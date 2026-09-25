@@ -3,7 +3,7 @@
 // 창 아래에서 모델과 생각하기를 고른다. 이미 주고받은 대화는 회사를 바꿀 수 없다 (회사마다 기록 모양이 달라서).
 import { h, sheet, confirmBox, autogrow, num, icon, iconBtn, dropdown, actions, ask as askText, toast, relTime } from '../ui.js';
 import { t } from '../i18n.js';
-import { db, chaptersOf, createEntry, put, del, uid, touchWork } from '../store.js';
+import { db, chaptersOf, typesOf, createEntry, put, del, uid, touchWork } from '../store.js';
 import { snapshot } from '../versions.js';
 import { diffRange, remapRange } from '../anchors.js';
 import { setChange } from '../timeline.js';
@@ -12,7 +12,7 @@ import { setJump } from '../screens/editor.js';
 import { aiConfig, setAi, setAiFor, aiReady } from './config.js';
 import { PROVIDERS, AiError, canThink } from './providers.js';
 import { ask } from './agent.js';
-import { toolLabel } from './tools.js';
+import { toolLabel, buildAttach, MAX_ATTACH } from './tools.js';
 import { newChat, chatsOf, saveChat, deleteChat } from './chats.js';
 
 const current = new Map(); // wid → 지금 열린 대화 (앱을 다시 열면 새 대화로 시작하고, 지난 대화는 목록에서)
@@ -33,7 +33,10 @@ export function openAsk(wid, cid = null) {
   const log = h('div', { class: 'ask-log' });
   const input = h('textarea', { class: 'ask-input', rows: 1, placeholder: t('ask.ph'), 'aria-label': t('ask.ph'), enterkeyhint: 'send' });
   const sendBtn = h('button', { class: 'ask-send', 'aria-label': t('ask.send'), title: t('ask.send') }, icon('up'));
-  const bar = h('div', { class: 'ask-bar' }, input, sendBtn);
+  const attBtn = h('button', { class: 'ask-attach', 'aria-label': t('ask.att.btn'), title: t('ask.att.btn') }, icon('clip'));
+  const bar = h('div', { class: 'ask-bar' }, attBtn, input, sendBtn);
+  const attRow = h('div', { class: 'ask-att' });
+  let att = []; // 다음 질문에 붙일 것 (보내면 비운다)
   const foot = h('div', { class: 'ask-foot' });
 
   // 답에서 [3:12]를 눌렀을 때: 창을 닫고 그 화의 그 줄로
@@ -45,6 +48,95 @@ export function openAsk(wid, cid = null) {
     const l = Math.min(Math.max(1, line || 1), lines.length);
     const index = lines.slice(0, l - 1).reduce((a, x) => a + x.length + 1, 0);
     setTimeout(() => { setJump(ch.id, index, line ? lines[l - 1].length : 0); go(`/w/${wid}/c/${ch.id}`); }, 200);
+  }
+
+  // ---- 첨부: 이 화, 회차 범위, 설정 항목·분류, 설정 전체 ----
+  const allEntries = () => [...db.entries.values()].filter((e) => e.workId === wid && e.name.trim());
+  function attLabel(a) {
+    if (a.kind === 'ch') return a.from === a.to ? t('ask.citeCh', { n: a.from }) : t('ask.att.chs', { from: a.from, to: a.to });
+    if (a.kind === 'entry') return db.entries.get(a.id)?.name || '?';
+    if (a.kind === 'type') return t('ask.att.type', { type: typesOf(wid).find((x) => x.key === a.key)?.label || a.key });
+    return t('ask.att.allEntries');
+  }
+  function addAtt(a) {
+    if (!att.some((x) => JSON.stringify(x) === JSON.stringify(a))) att.push(a);
+    drawAtt();
+    input.focus();
+  }
+  function sizeNote(size) {
+    if (size > MAX_ATTACH) return t('ask.att.cut', { n: num(MAX_ATTACH) });
+    return t(size > 30000 ? 'ask.att.big' : 'ask.att.size', { n: num(size) });
+  }
+  function drawAtt() {
+    attRow.hidden = !att.length || view === 'list';
+    if (attRow.hidden) return attRow.replaceChildren();
+    const { size } = buildAttach(wid, att);
+    attRow.replaceChildren(...att.map((a, i) => h('span', { class: 'att-chip' }, icon('clip'), h('span', { class: 'att-chip-text' }, attLabel(a)),
+      h('button', { class: 'att-x', 'aria-label': t('ask.att.remove'), onclick: () => { att.splice(i, 1); drawAtt(); } }, icon('close')))),
+    h('span', { class: 'muted small att-size' + (size > 30000 ? ' big' : '') }, sizeNote(size)));
+  }
+
+  function attachMenu() {
+    const chs = chaptersOf(wid);
+    const here = cid ? chs.findIndex((c) => c.id === cid) + 1 : 0;
+    actions([
+      here ? { label: t('ask.att.thisCh', { n: here }), run: () => addAtt({ kind: 'ch', from: here, to: here }) } : null,
+      { label: t('ask.att.range'), run: rangeSheet },
+      { label: t('ask.att.entries'), run: entrySheet },
+      { label: t('ask.att.allEntries'), run: () => (allEntries().length ? addAtt({ kind: 'all' }) : toast(t('ask.att.noEntries'))) },
+    ], t('ask.att.title'));
+  }
+
+  function rangeSheet() {
+    const chs = chaptersOf(wid);
+    if (!chs.length) { toast(t('ask.att.noCh')); return; }
+    let from = Math.max(1, cid ? chs.findIndex((c) => c.id === cid) + 1 : 1), to = from;
+    const options = chs.map((c, i) => ({ value: i + 1, label: `${i + 1}. ${c.title}` }));
+    const size = h('p', { class: 'muted small att-size' });
+    const upd = () => { size.textContent = sizeNote(buildAttach(wid, [{ kind: 'ch', from: Math.min(from, to), to: Math.max(from, to) }]).size); };
+    const s = sheet(h('div', { class: 'att-sheet' },
+      h('div', { class: 'att-range' },
+        h('div', { class: 'att-field' }, h('span', { class: 'muted small' }, t('ask.att.from')), dropdown({ label: t('ask.att.from'), value: from, options, onPick: (v) => { from = v; upd(); } })),
+        h('div', { class: 'att-field' }, h('span', { class: 'muted small' }, t('ask.att.to')), dropdown({ label: t('ask.att.to'), value: to, options, onPick: (v) => { to = v; upd(); } }))),
+      size,
+      h('button', { class: 'btn primary', onclick: () => { s.close(); addAtt({ kind: 'ch', from: Math.min(from, to), to: Math.max(from, to) }); } }, t('ask.att.add'))),
+    { title: t('ask.att.rangeTitle') });
+    upd();
+  }
+
+  function entrySheet() {
+    const entries = allEntries();
+    if (!entries.length) { toast(t('ask.att.noEntries')); return; }
+    const picked = new Set(), pickedTypes = new Set();
+    const types = typesOf(wid).filter((ty) => entries.some((e) => e.type === ty.key));
+    const filter = entries.length > 12 ? h('input', { class: 'input att-filter', type: 'search', placeholder: t('ask.att.filter'), oninput: () => drawList() }) : null;
+    const list = h('div', { class: 'att-list' });
+    const size = h('p', { class: 'muted small att-size' });
+    const addBtn = h('button', { class: 'btn primary', onclick: () => {
+      s.close();
+      for (const key of pickedTypes) addAtt({ kind: 'type', key });
+      for (const id of picked) if (!pickedTypes.has(db.entries.get(id)?.type)) addAtt({ kind: 'entry', id });
+    } });
+    const row = (label, on, onclick, cls = '') => h('button', { class: `att-row ${cls}${on ? ' on' : ''}`, onclick }, h('span', { class: 'att-check' }, on ? '✓' : ''), h('span', { class: 'att-row-text' }, label));
+    const toggle = (set, x) => { set.has(x) ? set.delete(x) : set.add(x); drawList(); };
+    function drawList() {
+      const q = filter?.value.trim().toLowerCase() || '';
+      const match = (e) => !q || e.name.toLowerCase().includes(q) || (e.aliases || []).some((x) => x.toLowerCase().includes(q));
+      list.replaceChildren(...types.flatMap((ty) => {
+        const all = entries.filter((e) => e.type === ty.key), es = all.filter(match);
+        if (!es.length) return [];
+        const whole = pickedTypes.has(ty.key);
+        return [row(`${t('ask.att.type', { type: ty.label })} · ${all.length}`, whole, () => toggle(pickedTypes, ty.key), 'att-type'),
+          ...es.map((e) => row(e.name, whole || picked.has(e.id), () => { if (!whole) toggle(picked, e.id); }, whole ? 'dim' : ''))];
+      }));
+      const chosen = [...[...pickedTypes].map((key) => ({ kind: 'type', key })), ...[...picked].map((id) => ({ kind: 'entry', id }))];
+      const n = pickedTypes.size + [...picked].filter((id) => !pickedTypes.has(db.entries.get(id)?.type)).length;
+      addBtn.disabled = !n;
+      addBtn.textContent = n ? t('ask.att.addN', { n }) : t('ask.att.add');
+      size.textContent = n ? sizeNote(buildAttach(wid, chosen).size) : '';
+    }
+    const s = sheet(h('div', { class: 'att-sheet' }, filter, list, size, addBtn), { title: t('ask.att.entriesTitle') });
+    drawList();
   }
 
   function startNew() {
@@ -96,7 +188,7 @@ export function openAsk(wid, cid = null) {
   const chip = (label, q) => h('button', { class: 'ask-chip', onclick: () => send(q) }, label);
   function drawChat() {
     log.replaceChildren(...chat.items.map((it) => h('div', { class: 'ask-item' },
-      h('div', { class: 'ask-q' }, it.q),
+      h('div', { class: 'ask-q' }, (it.att || []).length ? h('div', { class: 'ask-q-att' }, it.att.map((l) => h('span', { class: 'att-tag' }, icon('clip'), l))) : null, it.q),
       it.a != null ? h('div', { class: 'ask-a' }, renderAnswer(it.a || t('ask.empty'), wid, openCite)) : null,
       it.step ? h('div', { class: 'ask-step muted small' }, h('span', { class: 'ask-dot' }), it.step) : null,
       it.error ? h('div', { class: 'ask-error small' }, it.error) : null,
@@ -274,6 +366,7 @@ export function openAsk(wid, cid = null) {
   function draw() {
     drawHead();
     bar.hidden = foot.hidden = view === 'list';
+    drawAtt();
     if (view === 'list') { log.replaceChildren(); drawList(); } else { drawChat(); drawFoot(); }
   }
 
@@ -289,6 +382,9 @@ export function openAsk(wid, cid = null) {
     input.value = '';
     input.dispatchEvent(new Event('input')); // 높이도 한 줄로
     const it = { q, a: null, step: t('ask.thinking') };
+    const attach = att.length ? buildAttach(wid, att).text : '';
+    if (att.length) it.att = att.map(attLabel);
+    att = [];
     const mine = chat; // 기다리는 동안 다른 대화를 열어도 답은 이 대화에 남긴다
     mine.items.push(it);
     if (!mine.title) mine.title = q.length > 40 ? q.slice(0, 40) + '…' : q;
@@ -296,7 +392,7 @@ export function openAsk(wid, cid = null) {
     draw();
     try {
       const res = await ask({
-        wid, cid, chat: mine, question: q, signal: running.signal,
+        wid, cid, chat: mine, question: q, attach, signal: running.signal,
         onStep: (call) => { it.step = toolLabel(wid, call.name, call.input, t); if (chat === mine && view === 'chat') drawChat(); },
       });
       it.a = res.text;
@@ -315,12 +411,13 @@ export function openAsk(wid, cid = null) {
   }
 
   sendBtn.addEventListener('click', () => (running ? running.abort() : send()));
+  attBtn.addEventListener('click', attachMenu);
   autogrow(input);
   input.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); send(); }
   });
 
-  const sh = sheet(h('div', { class: 'ask' }, head, log, bar, foot), { onClose: () => running?.abort() });
+  const sh = sheet(h('div', { class: 'ask' }, head, log, attRow, bar, foot), { onClose: () => running?.abort() });
   sh.box.classList.add('ask-sheet');
   draw();
   if (!chat.items.length) setTimeout(() => input.focus(), 250);

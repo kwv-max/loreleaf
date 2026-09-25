@@ -92,12 +92,79 @@ export const TOOLS = [
   },
 ];
 
-const MAX_PROPOSALS = 8;
+const MAX_PROPOSALS = 8; // 한 번 묻기에 카드가 너무 많이 쌓이지 않게
 const MAX_ADD = 30; // 원고 고침에서 새로 들어가는 글자 수 상한 (사실 교정만, 문장은 못 쓰게)
 
 // 따옴표 모양은 화면(원고 보기)과 저장된 글이 다를 수 있어서, 찾을 때는 같은 글자로 본다 (길이는 그대로)
 const fold = (s) => s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
-const QUOTE_EDGE = /^[“"‘'「『]|[”"’'」』]$/g; // 한 번 묻기에 카드가 너무 많이 쌓이지 않게
+const QUOTE_EDGE = /^[“"‘'「『]|[”"’'」』]$/g;
+
+// 설정 한 장을 글로. asOf(화 번호)가 있으면 그 시점 값, 바뀐 기록도 함께 (도구와 첨부가 같이 쓴다)
+function describeEntry(wid, e, asOf = 0, header = true) {
+  const order = orderOf(wid);
+  const chNo = (id) => (order.has(id) ? order.get(id) + 1 : '?');
+  const at = asOf ? asOf - 1 : Infinity;
+  const out = [`${e.name} — ${typeOf(e.type, wid).label}`];
+  if (e.aliases?.length) out.push(`Aliases: ${e.aliases.join(', ')}`);
+  if (asOf && header) out.push(`Values as of chapter ${asOf}:`);
+  for (const f of e.fields) {
+    const v = valueAt(f, at, order).value;
+    out.push(`- ${f.label || '(no label)'}: ${v || '(empty)'}`);
+    const hist = historyOf(f, order);
+    if (hist.length > 1) out.push(`  changes: ${hist.map((x) => `${x.idx < 0 ? 'start' : `from ch.${x.idx + 1}`} → ${x.value || '(empty)'}`).join('; ')}`);
+  }
+  if (e.note?.trim()) out.push(`Note: ${e.note.trim()}`);
+  const rels = relationsOf(e.id);
+  if (rels.length) {
+    out.push('Relationships:');
+    for (const r of rels) {
+      const other = db.entries.get(otherOf(r, e.id));
+      if (!other) continue;
+      const [mine, theirs] = sidesFor(r, e.id);
+      const side = (x) => {
+        const v = valueAt(x, at, order).value;
+        const ch = (x.changes || []).filter((c) => order.has(c.chapterId)).map((c) => `from ch.${chNo(c.chapterId)}: ${c.value}`);
+        return `${v || '(empty)'}${ch.length ? ` [${ch.join('; ')}]` : ''}`;
+      };
+      out.push(`- ${e.name} → ${other.name}: ${side(mine)}`);
+      out.push(`  ${other.name} → ${e.name}: ${side(theirs)}`);
+    }
+  }
+  return out.join('\n');
+}
+
+// ---- 첨부: 작가가 묻기 전에 골라 붙인 화·설정 ----
+//   att = [{ kind: 'ch', from, to } | { kind: 'entry', id } | { kind: 'type', key } | { kind: 'all' }]
+export const MAX_ATTACH = 150000; // 이보다 길면 앞부분만 보낸다
+export function buildAttach(wid, att) {
+  const chs = chaptersOf(wid);
+  const entries = [...db.entries.values()].filter((e) => e.workId === wid && e.name.trim());
+  const parts = [];
+  const seen = new Set();
+  for (const a of att) {
+    if (a.kind === 'ch') {
+      for (let n = a.from; n <= a.to; n++) {
+        const c = chs[n - 1];
+        if (!c || seen.has(c.id)) continue;
+        seen.add(c.id);
+        const lines = manuscriptText(c).split('\n');
+        parts.push(`Chapter ${n}: ${c.title} (${lines.length} lines)\n${lines.map((l, k) => `${k + 1}: ${l}`).join('\n')}`);
+      }
+      continue;
+    }
+    const list = a.kind === 'entry' ? [db.entries.get(a.id)] : entries.filter((e) => a.kind === 'all' || e.type === a.key);
+    for (const e of list) {
+      if (!e || seen.has(e.id)) continue;
+      seen.add(e.id);
+      parts.push(describeEntry(wid, e));
+    }
+  }
+  if (!parts.length) return { text: '', size: 0 };
+  let body = parts.join('\n\n');
+  const size = body.length;
+  if (size > MAX_ATTACH) body = body.slice(0, MAX_ATTACH) + '\n[Attachment cut short here. Use the tools for the rest.]';
+  return { size, text: `[The author attached this material to the message below. Use it directly; no need to read it again with tools.]\n\n${body}\n\n[End of attached material]\n\n` };
+}
 
 // 도구 실행 → 모델에게 돌려줄 글. 잘못 부르면 Error를 던지고, 부르는 쪽이 오류 결과로 돌려준다.
 // ctx.proposals: 이번 묻기에서 나온 제안을 모으는 곳
@@ -110,39 +177,7 @@ export function runTool(wid, name, input = {}, ctx = {}) {
   };
   const label = (i) => `${i + 1}. ${chs[i].title}`;
   const entries = [...db.entries.values()].filter((e) => e.workId === wid && e.name.trim());
-  const order = orderOf(wid);
-  const chNo = (id) => (order.has(id) ? order.get(id) + 1 : '?');
-  // 설정 한 장을 글로. asOf(화 번호)가 있으면 그 시점 값, 바뀐 기록도 함께
-  const describe = (e, asOf = 0, header = true) => {
-    const at = asOf ? asOf - 1 : Infinity;
-    const out = [`${e.name} — ${typeOf(e.type, wid).label}`];
-    if (e.aliases?.length) out.push(`Aliases: ${e.aliases.join(', ')}`);
-    if (asOf && header) out.push(`Values as of chapter ${asOf}:`);
-    for (const f of e.fields) {
-      const v = valueAt(f, at, order).value;
-      out.push(`- ${f.label || '(no label)'}: ${v || '(empty)'}`);
-      const hist = historyOf(f, order);
-      if (hist.length > 1) out.push(`  changes: ${hist.map((x) => `${x.idx < 0 ? 'start' : `from ch.${x.idx + 1}`} → ${x.value || '(empty)'}`).join('; ')}`);
-    }
-    if (e.note?.trim()) out.push(`Note: ${e.note.trim()}`);
-    const rels = relationsOf(e.id);
-    if (rels.length) {
-      out.push('Relationships:');
-      for (const r of rels) {
-        const other = db.entries.get(otherOf(r, e.id));
-        if (!other) continue;
-        const [mine, theirs] = sidesFor(r, e.id);
-        const side = (x) => {
-          const v = valueAt(x, at, order).value;
-          const ch = (x.changes || []).filter((c) => order.has(c.chapterId)).map((c) => `from ch.${chNo(c.chapterId)}: ${c.value}`);
-          return `${v || '(empty)'}${ch.length ? ` [${ch.join('; ')}]` : ''}`;
-        };
-        out.push(`- ${e.name} → ${other.name}: ${side(mine)}`);
-        out.push(`  ${other.name} → ${e.name}: ${side(theirs)}`);
-      }
-    }
-    return out.join('\n');
-  };
+  const describe = (e, asOf, header) => describeEntry(wid, e, asOf, header);
 
   switch (name) {
     case 'list_chapters':

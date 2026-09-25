@@ -126,6 +126,7 @@ export default [
   { id: 'ai', title: 'AI assistant (optional)', lines: [
     'It’s off by default. Turn it on in the work list ⋯ → Settings → “AI assistant”, add your own API key (Claude, OpenAI or Gemini), and pick a model. The company that issued the key bills you.',
     'Once it’s on, ask from the speech-bubble button at the top of a work, or the editor ⋯ → “AI assistant”. Try a recap of the story, who and where in this chapter, or names missing from your notes.',
+    'Use the paperclip left of the input to attach this chapter, a range of chapters, or notes and categories to your question. The assistant then needn’t look them up, but more text costs more.',
     'The assistant reads only the chapters and notes it needs. Tap a reference like “Ch.3 L12” in an answer to jump there. Pick the model and how much it thinks (less, normal, deeply) at the bottom of the window. Chats are saved only on this device (not in backup files); reopen or delete them from the list at the top.',
     'The assistant never writes prose for you. It reads, answers, checks, and suggests new or changed world notes. Suggestions appear as cards and are saved only when you tap “Add” or “Apply”.',
     'If a name, number or similar detail in the text contradicts your notes, it may leave a “Text fix” card. It only swaps the wrong words within one line, and nothing changes until you tap “Fix”. The text before the fix stays in “Previous versions”, and the editor’s ↶ undoes it too.',
