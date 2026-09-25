@@ -259,7 +259,21 @@ export function openAsk(wid, cid = null) {
 }
 
 // 답 글 → 화면. 모델이 흔히 쓰는 모양(문단, - 목록, 1. 목록, **굵게**, # 제목)만 다루고, [화:줄]은 누를 수 있는 표시로.
-const CITE = /\[(\d+)(?::(\d+)(?:\s*[-–~]\s*\d+)?)?\]/g;
+// 한 괄호에 여러 곳을 넣기도 한다: [3:1, 3:5] [3:1; 4:2] [3:1, 5](같은 화 5줄) [3:1-4] [2, 3](화 여러 개)
+const REF = String.raw`\d+(?:\s*:\s*\d+)?(?:\s*[-–~]\s*\d+)?`;
+const CITE = new RegExp(String.raw`\[\s*(${REF}(?:\s*[,;，、]\s*${REF})*)\s*\]`, 'g');
+function citeRefs(body) {
+  const out = [];
+  let chapter = null;
+  for (const part of body.split(/[,;，、]/)) {
+    const m = part.trim().match(/^(\d+)(?:\s*:\s*(\d+))?/);
+    if (!m) return null;
+    if (m[2]) { chapter = +m[1]; out.push({ n: chapter, line: +m[2] }); }
+    else if (chapter != null && body.includes(':')) out.push({ n: chapter, line: +m[1] }); // [3:1, 5] → 3화 5줄
+    else out.push({ n: +m[1], line: null }); // [2, 3] → 2화, 3화
+  }
+  return out;
+}
 function inline(text, wid, onCite) {
   const out = [];
   const chs = chaptersOf(wid);
@@ -267,10 +281,12 @@ function inline(text, wid, onCite) {
     if (i % 2) { out.push(h('strong', null, part.slice(2, -2))); continue; }
     let last = 0;
     for (const m of part.matchAll(CITE)) {
-      const n = +m[1], line = m[2] ? +m[2] : null;
-      if (!chs[n - 1]) continue; // 없는 화 번호는 글자 그대로
+      const refs = citeRefs(m[1]);
+      if (!refs || refs.some((r) => !chs[r.n - 1])) continue; // 없는 화 번호가 섞이면 글자 그대로
       if (m.index > last) out.push(part.slice(last, m.index));
-      out.push(h('button', { class: 'cite', title: chs[n - 1].title, onclick: () => onCite(n, line) }, line ? t('ask.cite', { n, line }) : t('ask.citeCh', { n })));
+      for (const { n, line } of refs) {
+        out.push(h('button', { class: 'cite', title: chs[n - 1].title, onclick: () => onCite(n, line) }, line ? t('ask.cite', { n, line }) : t('ask.citeCh', { n })));
+      }
       last = m.index + m[0].length;
     }
     if (last < part.length) out.push(part.slice(last));
