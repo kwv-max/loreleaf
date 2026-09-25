@@ -1,15 +1,12 @@
 {
-  "version": "2026.09.26.10",
+  "version": "2026.09.26.11",
   "notes": [
-    "AI 도우미 입력창 왼쪽 클립 버튼으로 이 화, 회차 범위, 설정 항목·분류를 질문에 미리 붙일 수 있어요.",
-    "붙일 분량(글자 수)이 함께 보여요. 길수록 요금이 늘어요."
+    "업데이트 직후 새 화면이 스타일 없이 깨져 보이던 문제를 고쳤어요."
   ],
   "notes_en": [
-    "Use the paperclip left of the AI assistant’s input to attach this chapter, a range of chapters, or notes and categories to your question.",
-    "It shows how much text you are attaching; longer costs more."
+    "Fixed new screens sometimes looking unstyled right after an update."
   ],
   "notes_ja": [
-    "AIアシスタントの入力欄の左のクリップボタンで、この話・話の範囲・設定項目や分類を質問に添えられるようになりました。",
-    "添える分量（字数）も表示されます。長いほど料金が増えます。"
+    "アップデート直後に新しい画面のスタイルが崩れて見えることがある問題を直しました。"
   ]
 }

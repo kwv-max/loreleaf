@@ -14,7 +14,7 @@ import { helpScreen } from './screens/help.js';
 import { prefsScreen } from './screens/prefs.js';
 import { searchScreen } from './screens/search.js';
 import { graphScreen } from './screens/graph.js';
-import { initUpdates, onUpdate } from './update.js';
+import { initUpdates, onUpdate, versionReady } from './update.js';
 
 route('/', libraryScreen);
 route('/help', helpScreen);
@@ -113,6 +113,7 @@ async function boot() {
   // 새 버전 확인. 작품 목록을 보고 있으면 안내가 바로 보이게 다시 그린다.
   initUpdates();
   onUpdate(() => { if (path() === '/') render(); });
+  freshStyles();
   render();
   if (first) welcome();
   if (!ok) toast(t('app.noStorage'), { duration: 6000 });
@@ -126,3 +127,16 @@ async function boot() {
 }
 
 boot();
+
+// 배포 직후에는 호스팅 캐시가 파일마다 따로 바뀌어서, 새 스크립트에 옛 스타일 파일이 섞일 수 있다 (새 화면이 깨져 보임).
+// 켜질 때의 버전 번호를 붙인 주소로 스타일을 한 번 더 받아, 다 받으면 바꿔 끼운다 (오프라인이면 그대로).
+function freshStyles() {
+  versionReady().then((v) => {
+    const old = document.querySelector('link[rel="stylesheet"][href="css/app.css"]');
+    if (!v || !old) return;
+    const link = h('link', { rel: 'stylesheet', href: `css/app.css?v=${encodeURIComponent(v)}` });
+    link.onload = () => old.remove();
+    link.onerror = () => link.remove();
+    old.after(link);
+  });
+}
