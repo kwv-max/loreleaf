@@ -1,7 +1,10 @@
 // 설정 한 장 (캐릭터, 장소 등). 양식을 채우는 느낌이 아니라 메모장에 적는 느낌으로.
 // 적는 즉시 저장되고, 이름을 비운 채 나가면 조용히 사라진다.
-import { h, icon, iconBtn, topbar, debounce, autogrow, actions, toast, hintOnce, josa, pickIcon } from '../ui.js';
-import { db, put, del, typeOf, typesOf, iconOf, uid, COLORS, foldersOf, chaptersOf, entriesOf, createEntry } from '../store.js';
+import { h, icon, iconBtn, topbar, debounce, autogrow, actions, toast, hintOnce, josa, pickIcon, sheet } from '../ui.js';
+import {
+  db, put, del, typeOf, typesOf, iconOf, uid, COLORS, foldersOf, chaptersOf, entriesOf, createEntry, charactersOf,
+  relationsOf, relationBetween, createRelation, sidesFor, otherOf, isBlankRelation, removeRelationsOf,
+} from '../store.js';
 import { appearances } from '../highlight.js';
 import { go, back } from '../router.js';
 import { emit } from '../guide.js';
@@ -111,7 +114,8 @@ export function entryScreen({ wid, eid }) {
   // ---- 시점: 바뀐 기록이 있을 때만 보인다 ----
   const atBar = h('div', { class: 'at-bar' });
   function drawAt() {
-    const show = order.size > 1 && (hasChanges(e) || atCid);
+    const relChanged = relationsOf(e.id).some((r) => r.ab.changes?.length || r.ba.changes?.length);
+    const show = order.size > 1 && (hasChanges(e) || relChanged || atCid);
     atBar.hidden = !show;
     if (!show) return;
     atBar.replaceChildren(
@@ -124,7 +128,7 @@ export function entryScreen({ wid, eid }) {
       ...chaptersOf(wid).map((c) => ({ label: (c.id === atCid ? '✓ ' : '') + c.title, run: () => setAt(c.id) })),
     ], '몇 화 시점으로 볼까요?');
   }
-  function setAt(cid) { atCid = cid; setViewAt(wid, cid); drawAt(); drawFields(); drawMentions(); }
+  function setAt(cid) { atCid = cid; setViewAt(wid, cid); drawAt(); drawFields(); drawMentions(); drawRelations(); }
 
   // ---- 설정 항목 ----
   // 보이는 값은 지금 시점의 값. 고치면 그 값이 나온 기록(처음 값 또는 n화 기록)이 고쳐진다.
@@ -375,6 +379,124 @@ export function entryScreen({ wid, eid }) {
   drawAt();
   drawMentions();
 
+  // ---- 관계 (캐릭터끼리) ----
+  // 두 사람 사이에 기록은 하나. 여기서 적으면 상대 화면에도 그대로 보인다.
+  const relBox = isChar ? h('section', { class: 'entry-sec' }) : null;
+  const sideText = (side) => valueAt(side, atIdx(), order).value.trim();
+  function drawRelations() {
+    if (!relBox) return;
+    const rels = relationsOf(e.id)
+      .map((r) => ({ r, other: db.entries.get(otherOf(r, e.id)) }))
+      .filter((x) => x.other)
+      .sort((a, b) => a.other.name.localeCompare(b.other.name, 'ko'));
+    relBox.replaceChildren(
+      h('h3', null, '관계', rels.length ? h('span', { class: 'count' }, rels.length) : null),
+      rels.length ? h('div', { class: 'list' }, rels.map(({ r, other }) => {
+        const [mine, theirs] = sidesFor(r, e.id);
+        const m = sideText(mine), t = sideText(theirs);
+        return h('div', { class: 'row' },
+          h('button', { class: 'row-main with-icon', onclick: () => relationSheet(r) },
+            h('span', { class: 'dot lg', style: `--c:${other.color}` }),
+            h('div', null,
+              h('div', { class: 'row-title' }, other.name),
+              m ? h('div', { class: 'row-sub' }, m) : null,
+              t ? h('div', { class: 'row-sub muted' }, `${other.name}${josa(other.name, '이', '가')} 보기엔: ${t}`) : null,
+              !m && !t ? h('div', { class: 'row-sub muted' }, '관계 적기') : null)),
+          icon('chev', 'chev'));
+      })) : null,
+      h('div', { class: 'suggest' }, h('button', { class: 'suggest-chip', onclick: addRelation }, '+ 관계 추가')));
+  }
+
+  // 누구와의 관계인지: 이름이나 별명으로 찾기
+  function addRelation() {
+    const pool = charactersOf(wid).filter((x) => x.id !== e.id).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    if (!pool.length) { toast('관계를 맺을 다른 캐릭터가 아직 없어요.'); return; }
+    const input = h('input', { class: 'field-input', placeholder: '이름이나 별명으로 찾기', enterkeyhint: 'search', 'aria-label': '캐릭터 찾기' });
+    const list = h('div', { class: 'pick-list' });
+    let chosen = null;
+    const draw = () => {
+      const q = input.value.trim().toLowerCase();
+      const hits = pool.filter((x) => !q || x.name.toLowerCase().includes(q) || x.aliases.some((a) => a.toLowerCase().includes(q)));
+      list.replaceChildren(...hits.map((x) => h('button', { class: 'pick-row', type: 'button', onclick: () => { chosen = x; s.close(); } },
+        h('span', { class: 'dot', style: `--c:${x.color}` }),
+        h('span', { class: 'pick-name' }, x.name),
+        h('span', { class: 'muted small pick-sub' }, relationBetween(e.id, x.id) ? '이미 적은 관계' : x.aliases.join(', ')))),
+      hits.length ? null : h('p', { class: 'muted small' }, '맞는 캐릭터가 없어요.'));
+    };
+    input.addEventListener('input', draw);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' || ev.isComposing) return;
+      ev.preventDefault();
+      list.querySelector('.pick-row')?.click(); // 엔터는 맨 위 사람
+    });
+    draw();
+    const s = sheet(h('div', { class: 'pick-sheet' }, input, list), {
+      title: '누구와의 관계인가요?',
+      onClose: () => { if (chosen) setTimeout(() => relationSheet(relationBetween(e.id, chosen.id) || createRelation(wid, e.id, chosen.id)), 0); },
+    });
+    setTimeout(() => input.focus(), 60);
+  }
+
+  // 관계 한 건 고치기: 보는 방향마다 한 줄 (둘 다 선택). 닫으면 저장되고, 둘 다 비면 관계도 지운다.
+  function relationSheet(r) {
+    const other = db.entries.get(otherOf(r, e.id));
+    if (!other) return;
+    const [mine, theirs] = sidesFor(r, e.id);
+    let removed = false;
+    const sideRow = (side, from, to, autofocus) => {
+      const cur = valueAt(side, atIdx(), order);
+      const input = autogrow(h('textarea', { class: 'field-input', rows: 1, placeholder: '비워 둬도 돼요', 'aria-label': `${from.name}${josa(from.name, '이', '가')} 보는 ${to.name}` }));
+      input.value = cur.value;
+      const hist = historyOf(side, order);
+      const el = h('div', { class: 'rel-side' },
+        h('div', { class: 'rel-dir' }, h('span', { class: 'dot', style: `--c:${from.color}` }), `${from.name} → ${to.name}`),
+        input,
+        h('div', { class: 'rel-meta' },
+          hist.length > 1 ? h('span', { class: 'muted small' }, (cur.rec ? `${chTitle(cur.rec.chapterId)}부터 이 값` : '처음 값') + ` · 바뀐 기록 ${hist.length - 1}`) : h('span'),
+          order.size ? h('button', {
+            type: 'button', class: 'link-btn small',
+            onclick: async () => {
+              s.close(); // 닫으면서 지금 적은 것 저장
+              if (await factSheet(r, side, { mode: 'change', cid: atCid, title: `${from.name} → ${to.name}` })) { drawAt(); drawRelations(); }
+            },
+          }, '＋ 몇 화부터 바뀜') : null));
+      if (autofocus) setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 60);
+      return { side, cur, input, el };
+    };
+    const A = sideRow(mine, e, other, !sideText(mine) && !sideText(theirs));
+    const B = sideRow(theirs, other, e, false);
+    const commit = () => {
+      for (const x of [A, B]) {
+        const v = x.input.value.trim();
+        if (x.cur.rec) x.cur.rec.value = v; else x.side.value = v;
+        pruneSame(x.side, order);
+      }
+      if (isBlankRelation(r)) del('relations', r.id);
+      else put('relations', r);
+    };
+    const s = sheet(h('form', { class: 'sheet-form', onsubmit: (ev) => { ev.preventDefault(); s.close(); } },
+      atCid ? h('p', { class: 'muted small' }, `${chTitle(atCid)} 시점`) : null,
+      A.el, B.el,
+      h('p', { class: 'muted small' }, '한쪽만 적어도 돼요. 상대 화면에도 함께 보여요.'),
+      h('button', { class: 'btn primary', type: 'submit' }, '저장'),
+      h('div', { class: 'rel-foot' },
+        h('button', {
+          type: 'button', class: 'link-btn danger',
+          onclick: () => {
+            removed = true;
+            del('relations', r.id);
+            s.close();
+            toast(`${other.name}${josa(other.name, '과', '와')}의 관계를 지웠어요.`, {
+              action: '되돌리기', duration: 6000,
+              onAction: () => { put('relations', r, { touch: false }); drawRelations(); drawAt(); },
+            });
+          },
+        }, '관계 지우기'),
+        h('button', { type: 'button', class: 'link-btn', onclick: () => { s.close(); go(`/w/${wid}/e/${other.id}`); } }, `${other.name} 설정`, icon('chev')))),
+    { title: `${e.name} ↔ ${other.name}`, onClose: () => { if (!removed) commit(); drawRelations(); drawAt(); } });
+  }
+  drawRelations();
+
   // ---- 메모 ----
   const note = autogrow(h('textarea', {
     class: 'entry-note', placeholder: '자유롭게 적어 두는 곳', 'aria-label': '메모',
@@ -402,10 +524,11 @@ export function entryScreen({ wid, eid }) {
       { label: '삭제', danger: true, run: () => {
         save.cancel(); // 지운 뒤에 남은 저장이 되살리지 않도록
         del('entries', e.id);
+        const gone = removeRelationsOf(e.id);
         back(listPath);
         toast(`‘${e.name || '이름 없음'}’${josa(e.name || '음', '을', '를')} 지웠어요.`, {
           action: '되돌리기', duration: 6000,
-          onAction: () => { put('entries', e, { touch: false }); go(location.hash.slice(1), { replace: true }); },
+          onAction: () => { put('entries', e, { touch: false }); for (const r of gone) put('relations', r, { touch: false }); go(location.hash.slice(1), { replace: true }); },
         });
       } },
     ]);
@@ -419,6 +542,7 @@ export function entryScreen({ wid, eid }) {
         h('p', { class: 'muted small' }, '이름과 별명이 본문에 나오면 형광펜으로 표시돼요.')) : null,
       isChar ? h('section', { class: 'entry-sec' }, h('h3', null, '표시 색'), colors) : null,
       h('section', { class: 'entry-sec' }, h('h3', null, '설정'), atBar, fieldBox, suggestBox),
+      relBox,
       mentionBox,
       h('section', { class: 'entry-sec' }, h('h3', null, '메모'), note),
       appearBox));
@@ -432,7 +556,7 @@ export function entryScreen({ wid, eid }) {
     if (!db.entries.has(e.id)) return; // 이미 지운 설정은 다시 저장하지 않는다
     save.flush();
     const blank = !e.name.trim() && !e.aliases.length && !e.note.trim() && !e.fields.some((f) => f.value.trim());
-    if (blank && db.entries.has(e.id)) del('entries', e.id);
+    if (blank && db.entries.has(e.id)) { del('entries', e.id); removeRelationsOf(e.id); }
   };
   return el;
 }

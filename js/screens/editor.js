@@ -3,7 +3,9 @@
 // 구조: 표시용 레이어(.ed-backdrop) 위에 투명 배경 textarea를 겹친다.
 // 형광펜과 대사 따옴표는 뒤 레이어에만 그려지므로 원고 텍스트에는 어떤 서식도 들어가지 않는다.
 import { h, icon, iconBtn, debounce, num, toast, actions, ask, askLong, hintOnce, josa } from '../ui.js';
-import { db, put, uid, chaptersOf, charactersOf, createChapter, createEntry, stashDraft, clearDraft, touchWork, typeOf, typesOf, iconOf } from '../store.js';
+import { db, put, uid, chaptersOf, charactersOf, createChapter, createEntry, stashDraft, clearDraft, touchWork, typeOf, typesOf, iconOf,
+  relationsOf, sidesFor, otherOf,
+} from '../store.js';
 import { buildMatcher, highlightHTML, appearances, findAll, findHTML, notesHTML } from '../highlight.js';
 import { go, back, interceptBack } from '../router.js';
 import { emit } from '../guide.js';
@@ -497,6 +499,30 @@ export function editorScreen({ wid, cid }) {
     const facts = [...rows.filter((r) => r.here), ...rows.filter((r) => !r.here)].slice(0, 6);
     const apps = isChar ? appearances(c) : [];
     const editFact = async (f) => { if (await factSheet(c, f, { cid })) openCard(c.id); };
+    // 관계는 이 화에 같이 나온 사람과의 것만 (다 보여 주면 카드가 넘친다)
+    const present = new Set([...backdrop.querySelectorAll('mark')].flatMap((m) => m.dataset.id.split(',')));
+    const rels = isChar ? relationsOf(c.id)
+      .map((r) => {
+        const o = db.entries.get(otherOf(r, c.id));
+        const [mine, theirs] = sidesFor(r, c.id);
+        const m = valueAt(mine, at, order), t = valueAt(theirs, at, order);
+        return { r, o, mine, m, t, here: m.rec?.chapterId === cid || t.rec?.chapterId === cid };
+      })
+      .filter((x) => x.o && present.has(x.o.id) && (x.m.value.trim() || x.t.value.trim()))
+      .sort((a, b) => b.here - a.here)
+      .slice(0, 4) : [];
+    const editRel = async ({ r, o, mine }) => {
+      if (await factSheet(r, mine, { cid, title: `${c.name} → ${o.name}` })) openCard(c.id);
+    };
+    const relNode = rels.length ? h('div', { class: 'peek-rels' },
+      h('div', { class: 'peek-sub' }, '이 화의 관계'),
+      h('dl', { class: 'peek-facts' }, rels.map((x) => [
+        h('dt', { class: x.here ? 'changed' : null, onclick: () => openCard(x.o.id) },
+          h('span', { class: 'dot', style: `--c:${x.o.color}` }), x.o.name,
+          x.here ? h('span', { class: 'new-dot', title: '이 화에서 바뀜', 'aria-label': '이 화에서 바뀜' }) : null),
+        h('dd', { onclick: () => editRel(x) },
+          x.m.value.trim() || h('span', { class: 'muted' }, `${x.o.name}${josa(x.o.name, '이', '가')} 보기엔: ${x.t.value.trim()}`)),
+      ]))) : null;
     // 연결된 목록의 이름은 형광펜처럼, 누르면 그 설정 카드로
     const valueNode = (f, text) => {
       const link = linkOf(f);
@@ -526,6 +552,7 @@ export function editorScreen({ wid, cid }) {
           ];
         }))
         : h('p', { class: 'peek-empty' }, '아직 적어둔 설정이 없어요.'),
+      relNode,
       facts.length && firstTime('card-edit') ? h('p', { class: 'peek-hint' }, '값을 탭하면 바로 고치거나, 이 화부터 바뀐 것으로 기록할 수 있어요.') : null,
       h('div', { class: 'peek-foot' },
         h('span', { class: 'muted' }, apps.length ? `${apps.length}개 화에 등장` : ''),

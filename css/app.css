@@ -650,3 +650,24 @@ mark.multi {
 .update-notes li + li { margin-top: 4px; }
 .update-sheet .center { text-align: center; margin: 10px 0 0; }
 .app-info { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-variant-numeric: tabular-nums; }
+
+/* ---------- 관계 ---------- */
+.pick-sheet .field-input { margin-bottom: 8px; }
+.pick-list { display: flex; flex-direction: column; max-height: 46dvh; overflow: auto; }
+.pick-row { display: flex; align-items: center; gap: 10px; padding: 11px 6px; border-radius: 10px; text-align: left; }
+.pick-row:active { background: var(--line); }
+.pick-row .dot { width: 12px; height: 12px; flex: none; }
+.pick-name { font-weight: 600; white-space: nowrap; }
+.pick-sub { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rel-side { display: flex; flex-direction: column; gap: 6px; }
+.rel-dir { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.rel-dir .dot { width: 9px; height: 9px; }
+.rel-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; }
+.link-btn.small { font-size: 13px; }
+.rel-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; }
+.peek-rels { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.peek-sub { font-size: 12px; font-weight: 700; color: var(--muted); }
+.peek-rels .peek-facts { margin-top: 6px; }
+.peek-rels dt { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-weight: 600; }
+.peek-rels dt .dot { width: 9px; height: 9px; }
+.rel-side textarea { height: auto; min-height: 48px; padding: 11px 16px; resize: none; overflow: hidden; line-height: 1.5; }

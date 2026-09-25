@@ -47,7 +47,9 @@ function welcome() {
 }
 
 async function boot() {
-  const ok = await initStore();
+  const ok = await initStore({
+    blocked: () => toast('다른 창에 열려 있는 갈피를 닫아 주세요. 새 버전으로 바꾸는 중이에요.', { duration: 60000 }),
+  });
   let first = false;
   try { first = !localStorage.getItem('ll:welcomed'); } catch {}
   if (first && !db.works.size) insertSample();

@@ -3,7 +3,7 @@
 //   field = { id, label, value, changes?: [{ id, chapterId, value }] }
 // 어떤 화 시점의 값 = 그 화까지의 기록 중 가장 늦은 것, 없으면 처음 값.
 import { h, sheet, autogrow, toast } from './ui.js';
-import { db, put, uid, chaptersOf } from './store.js';
+import { db, put, uid, chaptersOf, recordStore, sidesFor, otherOf } from './store.js';
 import { buildMatcher } from './highlight.js';
 
 // 작품의 화 순서: chapterId → 0, 1, 2 ...
@@ -41,6 +41,16 @@ export function changesIn(wid, cid) {
     if (e.workId !== wid) continue;
     for (const f of e.fields) for (const c of f.changes || []) if (c.chapterId === cid) out.push({ entry: e, field: f, change: c });
   }
+  // 관계: 바뀐 쪽을 보는 사람의 설정으로 친다 (예: 유나 · 관계: 미로)
+  for (const r of db.relations.values()) {
+    if (r.workId !== wid) continue;
+    for (const me of r.pair) {
+      const [mine] = sidesFor(r, me);
+      const c = (mine.changes || []).find((x) => x.chapterId === cid);
+      const entry = db.entries.get(me), other = db.entries.get(otherOf(r, me));
+      if (c && entry && other) out.push({ entry, field: { label: `관계: ${other.name}` }, change: c, relation: r });
+    }
+  }
   return out;
 }
 
@@ -72,14 +82,14 @@ export function setChange(e, f, cid, value) {
   if (hit) hit.value = value;
   else f.changes.push({ id: uid(), chapterId: cid, value });
   const n = pruneSame(f, orderOf(e.workId));
-  put('entries', e);
+  put(recordStore(e), e);
   return n;
 }
 
 export function removeChange(e, f, rec) {
   f.changes = (f.changes || []).filter((c) => c !== rec);
   const n = pruneSame(f, orderOf(e.workId));
-  put('entries', e);
+  put(recordStore(e), e);
   return n;
 }
 
@@ -145,7 +155,7 @@ export function mentionsOf(target, atCid = null) {
 //   mode 'auto': 지금 화(cid) 시점에서 보이는 값을 고친다. 그 값이 앞 화에서 온 것이면
 //                "이 화부터 바뀜"(기본)과 "원래 값 고치기" 중 고를 수 있다.
 //   mode 'change': 몇 화부터 바뀌었는지 고르고 새 값을 적는다.
-export function factSheet(e, f, { cid = null, mode = 'auto' } = {}) {
+export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}) {
   return new Promise((resolve) => {
     const chapters = chaptersOf(e.workId);
     const order = new Map(chapters.map((c, i) => [c.id, i]));
@@ -184,11 +194,11 @@ export function factSheet(e, f, { cid = null, mode = 'auto' } = {}) {
         ev.preventDefault();
         const v = input.value.trim();
         let dropped = 0;
-        if (mode === 'change' && order.get(cid) === 0 && !f.changes?.some((c) => c.chapterId === cid)) { f.value = v; dropped = pruneSame(f, order); put('entries', e); }
+        if (mode === 'change' && order.get(cid) === 0 && !f.changes?.some((c) => c.chapterId === cid)) { f.value = v; dropped = pruneSame(f, order); put(recordStore(e), e); }
         else if (mode === 'change' || (needChoice && asChange)) {
           if (v !== valueAt(f, at(), order).value) dropped = setChange(e, f, cid, v);
         } else if (src.rec) dropped = setChange(e, f, src.rec.chapterId, v);
-        else { f.value = v; dropped = pruneSame(f, order); put('entries', e); }
+        else { f.value = v; dropped = pruneSame(f, order); put(recordStore(e), e); }
         if (dropped) toast(`앞 화와 같은 값이 된 기록 ${dropped}개를 지웠어요.`);
         saved = true;
         s.close();
@@ -198,7 +208,7 @@ export function factSheet(e, f, { cid = null, mode = 'auto' } = {}) {
     needChoice ? h('p', { class: 'muted small' }, '‘바뀜’으로 적으면 앞 화들은 예전 값 그대로예요.') : null,
     h('button', { class: 'btn primary', type: 'submit' }, '저장'));
 
-    const s = sheet(form, { title: `${e.name} · ${f.label || '설정'}`, onClose: () => resolve(saved) });
+    const s = sheet(form, { title: title || `${e.name} · ${f.label || '설정'}`, onClose: () => resolve(saved) });
     setTimeout(() => { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 60);
   });
 }

@@ -1,7 +1,7 @@
 // 데이터 저장소: 전부 메모리에 올려두고, 바뀐 레코드만 IndexedDB에 기록한다.
 import { migrateChapter } from './quotes.js';
-const STORES = ['works', 'chapters', 'entries', 'folders'];
-export const db = { works: new Map(), chapters: new Map(), entries: new Map(), folders: new Map() };
+const STORES = ['works', 'chapters', 'entries', 'folders', 'relations'];
+export const db = { works: new Map(), chapters: new Map(), entries: new Map(), folders: new Map(), relations: new Map() };
 let idb = null;
 
 export const TYPES = [
@@ -66,14 +66,23 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 
 const req = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
-export async function initStore() {
+// 다른 창의 옛 갈피 때문에 저장소를 못 열 때 알려 줄 곳 (app.js가 정한다)
+let onBlocked = null;
+export async function initStore({ blocked } = {}) {
+  onBlocked = blocked;
   try {
     idb = await new Promise((res, rej) => {
-      const r = indexedDB.open('loreleaf', 1);
+      const r = indexedDB.open('loreleaf', 2); // 2: 관계(relations) 추가
       r.onupgradeneeded = () => {
         for (const s of STORES) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s, { keyPath: 'id' });
       };
-      r.onsuccess = () => res(r.result);
+      // 저장소 모양이 바뀌는 업데이트 때, 다른 창에 열린 옛 갈피가 붙잡고 있으면 여기서 기다리게 된다
+      r.onblocked = () => onBlocked?.();
+      r.onsuccess = () => {
+        // 앞으로 새 버전이 저장소를 바꾸려 하면, 이 창은 비켜 주고 새로고침한다
+        r.result.onversionchange = () => { r.result.close(); location.reload(); };
+        res(r.result);
+      };
       r.onerror = () => rej(r.error);
     });
     for (const s of STORES) {
@@ -184,6 +193,31 @@ export function createEntry(wid, type, { name = '', folderId = null } = {}) {
   return e;
 }
 
+// ---- 관계 (캐릭터끼리) ----
+// 두 사람 사이에 기록은 딱 하나: { id, workId, pair: [a, b], ab: a가 b를 보는 한 줄, ba: b가 a를 보는 한 줄 }
+// 한쪽에서 적으면 양쪽 화면에 다 보이고, 서로 말이 어긋날 수 없다.
+// 각 줄은 설정 항목과 같은 모양({ value, changes })이라 '몇 화부터 바뀜'을 그대로 쓴다.
+export const relationsOf = (eid) => [...db.relations.values()].filter((r) => r.pair.includes(eid));
+export const relationBetween = (a, b) => [...db.relations.values()].find((r) => r.pair.includes(a) && r.pair.includes(b));
+export function createRelation(wid, a, b) {
+  const side = () => ({ id: uid(), label: '', value: '' });
+  const r = { id: uid(), workId: wid, pair: [a, b], ab: side(), ba: side(), createdAt: Date.now() };
+  put('relations', r);
+  return r;
+}
+// 보는 사람(me) 기준으로 [내가 상대를, 상대가 나를]
+export const sidesFor = (r, me) => (r.pair[0] === me ? [r.ab, r.ba] : [r.ba, r.ab]);
+export const otherOf = (r, me) => (r.pair[0] === me ? r.pair[1] : r.pair[0]);
+export const isBlankRelation = (r) => [r.ab, r.ba].every((s) => !s.value.trim() && !s.changes?.length);
+// 설정(entries)과 관계(relations) 중 어느 저장소의 기록인지
+export const recordStore = (o) => (o.pair ? 'relations' : 'entries');
+// 캐릭터를 지우면 그 사람의 관계도 함께 지운다 (되돌리기용으로 지운 것을 돌려준다)
+export function removeRelationsOf(eid) {
+  const gone = relationsOf(eid);
+  for (const r of gone) del('relations', r.id);
+  return gone;
+}
+
 export function createFolder(wid, type, name, parentId = null) {
   const f = { id: uid(), workId: wid, type, parentId, name, createdAt: Date.now() };
   put('folders', f);
@@ -200,7 +234,7 @@ export function deleteFolder(fid) {
 }
 
 export function deleteWork(wid) {
-  for (const s of ['chapters', 'entries', 'folders']) for (const o of [...db[s].values()]) if (o.workId === wid) del(s, o.id);
+  for (const s of ['chapters', 'entries', 'folders', 'relations']) for (const o of [...db[s].values()]) if (o.workId === wid) del(s, o.id);
   del('works', wid);
 }
 

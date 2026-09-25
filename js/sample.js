@@ -95,12 +95,19 @@ export function insertSample() {
     E('world', '마녀의 계약', { fields: [F('요약', '마녀는 계약으로 힘을 얻는다. 계약자는 서로의 이름을 부를 수 없다.')] }),
     E('memo', '2부 방향', { folderId: folderPlot.id, note: '세 번째 계약자는 카이렌? → 너무 뻔한가. 다른 후보도 생각해 보기.' }),
   ];
+  const who = (name) => entries.find((e) => e.name === name).id;
+  const side = (value, changes = []) => ({ id: uid(), label: '', value, changes: changes.map(([chapterId, v]) => ({ id: uid(), chapterId, value: v })) });
+  const relations = [
+    { id: uid(), workId: wid, pair: [who('유나'), who('카이렌')], ab: side('잔소리 많은 부단장'), ba: side('마녀라고 놀리지만 제일 먼저 챙기는 후배'), createdAt: now },
+    { id: uid(), workId: wid, pair: [who('유나'), who('세라핀')], ab: side('존경하는 단장'), ba: side('믿는 부하', [[c3, '정체를 의심하는 부하']]), createdAt: now },
+  ];
   const work = { id: wid, title: '검은 여우의 겨울', sample: true, createdAt: now, updatedAt: now - 1000, lastChapterId: chapters[0].id };
 
   put('works', work, { touch: false });
   for (const c of chapters) { migrateChapter(c); put('chapters', c, { touch: false }); }
   for (const f of [folderSide, folderPlot]) put('folders', f, { touch: false });
   for (const e of entries) put('entries', e, { touch: false });
+  for (const r of relations) put('relations', r, { touch: false });
   return work;
 }
 
