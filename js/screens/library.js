@@ -1,11 +1,13 @@
 // 작품 목록. 가장 먼저 보이는 건 "이어 쓰기" 하나.
-import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast, download, josa } from '../ui.js';
+import { h, icon, iconBtn, topbar, relTime, num, ask, actions, confirmBox, toast, download, josa, sheet } from '../ui.js';
 import { db, worksSorted, chaptersOf, createWork, deleteWork, put, importAll } from '../store.js';
 import { go } from '../router.js';
 import { emit } from '../guide.js';
 import { manuscriptText, lengthOf } from '../quotes.js';
 import { saveBackup, lastBackup, canOverwrite } from '../backup.js';
 import { newVersion, showUpdate } from '../update.js';
+import { todayCount } from '../today.js';
+import { pref, setPref } from '../prefs.js';
 
 export async function newWork() {
   const title = await ask('새 작품', { placeholder: '작품 제목', ok: '만들기' });
@@ -34,8 +36,63 @@ export function exportChapter(w, c) {
   download(`${w.title} - ${c.title}.txt`, `${c.title}\n\n${manuscriptText(c).trim()}\n`);
 }
 
+// ---- 연재용 복사 ----
+// 연재 사이트 입력 칸에 붙여 넣기 좋게: 문단 사이 빈 줄(여러 사이트가 줄바꿈 하나를 무시한다), 제목은 골라서.
+export function serialText(c, { gap = true, title = false } = {}) {
+  const lines = manuscriptText(c).split('\n').map((l) => l.replace(/\s+$/, ''));
+  const body = gap
+    ? lines.filter((l) => l.trim()).join('\n\n')
+    : lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return (title ? `${c.title}\n\n` : '') + body.trim();
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  // 예전 방식 (권한이 없을 때)
+  const ta = h('textarea', { style: 'position:fixed;opacity:0;top:0' });
+  ta.value = text;
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  return ok;
+}
+export function serialCopy(c) {
+  const opts = { gap: pref('serialGap'), title: pref('serialTitle') };
+  const info = h('p', { class: 'muted small' });
+  const drawInfo = () => {
+    const t = serialText(c, opts);
+    info.textContent = `공백 포함 ${num(t.length)}자 · 공백 제외 ${num(t.replace(/\s/g, '').length)}자`;
+  };
+  const toggle = (key, label, sub) => {
+    const b = h('button', { class: 'toggle-row', type: 'button', role: 'switch' },
+      h('span', null, h('b', null, label), h('span', { class: 'muted small' }, sub)),
+      h('span', { class: 'switch' }));
+    const sync = () => { b.classList.toggle('on', !!opts[key]); b.setAttribute('aria-checked', String(!!opts[key])); };
+    b.addEventListener('click', () => { opts[key] = !opts[key]; setPref(key === 'gap' ? 'serialGap' : 'serialTitle', opts[key]); sync(); drawInfo(); });
+    sync();
+    return b;
+  };
+  drawInfo();
+  const s = sheet(h('div', { class: 'serial-sheet' },
+    toggle('gap', '문단 사이에 빈 줄', '줄바꿈 하나를 무시하는 사이트에 좋아요'),
+    toggle('title', '제목 넣기', `맨 위에 ‘${c.title}’`),
+    info,
+    h('button', {
+      class: 'btn primary',
+      onclick: async () => {
+        const ok = await copyText(serialText(c, opts));
+        s.close();
+        toast(ok ? '복사했어요. 연재 사이트에 붙여 넣으면 돼요.' : '복사하지 못했어요. 텍스트로 내보내기를 써 주세요.');
+      },
+    }, '복사하기'),
+    h('p', { class: 'muted small' }, '주석은 빠지고, 대사 줄에는 환경 설정의 따옴표가 붙어요.')),
+  { title: `${c.title} · 연재용 복사` });
+}
+
 export function exportText(w) {
-  const body = chaptersOf(w.id).map((c) => `${c.title}\n\n${manuscriptText(c).trim()}`).join('\n\n\n');
+  // 부가 시작되는 화 앞에는 부 제목을 넣는다
+  const body = chaptersOf(w.id).map((c) => `${c.part ? `【${c.part}】\n\n\n` : ''}${c.title}\n\n${manuscriptText(c).trim()}`).join('\n\n\n');
   download(`${w.title}.txt`, `${w.title}\n\n\n${body}\n`);
 }
 
@@ -109,6 +166,7 @@ export function libraryScreen() {
       backupTip(),
       iosInstallTip(),
       resume,
+      todayLine(),
       works.length ? h('h2', { class: 'section' }, '작품') : null,
       list),
     h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), '새 작품')));
@@ -180,4 +238,17 @@ function backupTip() {
       onclick: () => { try { localStorage.setItem('ll:backup-snooze', String(Date.now() + 3 * DAY)); } catch {} el.remove(); },
     }, icon('close')));
   return el;
+}
+
+// 오늘 쓴 글자 수. 목표를 정해 둔 사람에게만 막대를 보여 준다.
+function todayLine() {
+  const n = todayCount();
+  const goal = +pref('goal') || 0;
+  if (!n && !goal) return null;
+  const done = goal && n >= goal;
+  return h('div', { class: 'today' + (done ? ' done' : '') },
+    h('div', { class: 'today-text' },
+      goal ? h('span', null, done ? '오늘 목표를 채웠어요' : '오늘', ' ', h('b', null, num(n)), ` / ${num(goal)}자`)
+        : h('span', null, '오늘 ', h('b', null, num(n)), '자 썼어요')),
+    goal ? h('div', { class: 'today-bar' }, h('span', { style: `width:${Math.min(100, (n / goal) * 100)}%` })) : null);
 }

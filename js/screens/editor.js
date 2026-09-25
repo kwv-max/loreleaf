@@ -15,8 +15,9 @@ import { pref } from '../prefs.js';
 import { setSearchQuery } from './search.js';
 import { diffRange, remapRange } from '../anchors.js';
 import { orderOf, valueAt, changesIn, factSheet, setViewAt, linkOf, namedOfType, linkParts } from '../timeline.js';
-import { exportChapter } from './library.js';
+import { exportChapter, serialCopy } from './library.js';
 import { snapshot, versionsOf, whenLabel } from '../versions.js';
+import { noteOpen, noteSave, todayCount } from '../today.js';
 
 let jump = null; // 다른 화면에서 "이 위치로 가서 보여줘" 요청 (find가 있으면 찾기 막대도 연다)
 let enterFrom = null; // 화를 넘겨 들어올 때 밀려 들어오는 방향 ('left' | 'right')
@@ -92,6 +93,7 @@ export function editorScreen({ wid, cid }) {
     ch.notes = notes.map((n) => ({ ...n }));
     put('chapters', ch).then(() => clearDraft(ch.id));
     touchWork(wid);
+    noteSave(ch);
     if (Date.now() - lastSnap > 10 * 60 * 1000) snap();
   }, 600);
   const stash = debounce(() => stashDraft(ch.id, ta.value, packFlags(flags), notes), 150);
@@ -849,8 +851,10 @@ export function editorScreen({ wid, cid }) {
       notes.length ? { label: `주석 모아 보기 (${notes.length})`, run: notesSheet } : null,
       { label: '이전 버전', run: versionsSheet },
       { label: '제목 바꾸기', run: rename },
+      { label: '연재용으로 복사', run: () => { save.flush(); serialCopy(ch); } },
       { label: '이 화만 텍스트로 내보내기', run: () => { save.flush(); exportChapter(work, ch); } },
       { info: true, label: `공백 포함 ${num(text.length)}자 · 공백 제외 ${num(text.replace(/\s/g, '').length)}자` },
+      todayCount(wid) ? { info: true, label: `오늘 이 작품에서 +${num(todayCount(wid))}자` } : null,
     ]);
   }
 
@@ -927,6 +931,7 @@ export function editorScreen({ wid, cid }) {
   paint();
   updateCount(); updateCount.flush(); // 처음 글자 수는 바로
   snap(); // 이번에 쓰기 시작하기 전 모습
+  noteOpen(ch); // 오늘 쓴 글자 수의 기준
   setTimeout(() => {
     if (jump && jump.cid === cid) {
       const { index, len, find } = jump;

@@ -37,6 +37,7 @@ const PATHS = {
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   leaf: '<path d="M5 19C5 10 11 5 20 4c0 9-5 15-14 15"/><path d="M5 19l8-8"/>',
+  grip: '<path d="M5 9h14M5 15h14"/>',
   // 설정 분류·항목에 고를 수 있는 아이콘
   people: '<circle cx="9" cy="8" r="3"/><path d="M3 19c.8-3.5 3-5 6-5s5.2 1.5 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 14c2 .5 3 2 3.5 5"/>',
   sword: '<path d="M19 4l1 1-11 11-1-1z"/><path d="M6 13l5 5M7.5 16.5L4 20"/>',

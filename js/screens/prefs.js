@@ -2,7 +2,7 @@
 import { h, topbar, toast } from '../ui.js';
 import { versionReady, checkUpdate, showUpdate } from '../update.js';
 import { back } from '../router.js';
-import { pref, setPref, ACCENTS, applyAccent, applyTheme, isDark } from '../prefs.js';
+import { pref, setPref, ACCENTS, applyAccent, applyTheme, applyText, isDark } from '../prefs.js';
 
 function choice(name, options, onPick) {
   const box = h('div', { class: 'choices', role: 'radiogroup' });
@@ -29,6 +29,30 @@ function accentPicker() {
 }
 let redrawAccents = () => {};
 
+// 에디터 글자 크기·줄 간격·글꼴. 바꾸면 아래 미리보기에 바로 보인다.
+function textPrefs() {
+  const preview = h('div', { class: 'text-preview' },
+    '눈은 밤새 그치지 않았다. 유나는 성벽 위에 서서 숨을 내쉬었다.\n“또 밤 순찰이야?”');
+  const pick = (name, options) => choice(name, options, () => applyText());
+  return h('div', { class: 'text-prefs' },
+    pick('edSize', [
+      { value: 's', label: '작게', sample: h('span', { style: 'font-size:15px' }, '가') },
+      { value: 'm', label: '보통', sample: h('span', { style: 'font-size:17px' }, '가') },
+      { value: 'l', label: '크게', sample: h('span', { style: 'font-size:19px' }, '가') },
+      { value: 'xl', label: '아주 크게', sample: h('span', { style: 'font-size:21px' }, '가') },
+    ]),
+    pick('edLine', [
+      { value: 'normal', label: '보통 줄 간격', sample: '≡' },
+      { value: 'wide', label: '넓은 줄 간격', sample: '☰' },
+    ]),
+    pick('edFont', [
+      { value: 'sans', label: '고딕', sample: h('span', { style: 'font-family:var(--font)' }, '갈피') },
+      { value: 'serif', label: '명조', sample: h('span', { style: 'font-family:"Noto Serif KR","Noto Serif CJK KR","Nanum Myeongjo","AppleMyungjo","Batang",serif' }, '갈피') },
+    ]),
+    preview,
+    h('p', { class: 'muted small' }, '글 쓰는 화면에만 적용돼요. 명조는 처음 고를 때 글꼴을 한 번 받아 와요(인터넷 필요). 그 뒤로는 오프라인에서도 돼요.'));
+}
+
 function versionLabel() {
   const el = h('span', null, '갈피');
   versionReady().then((v) => { if (v) el.textContent = `갈피 ${v}`; });
@@ -46,6 +70,18 @@ export function prefsScreen() {
           { value: 'light', label: '늘 밝게', sample: '밝게' },
           { value: 'dark', label: '늘 어둡게', sample: '어둡게' },
         ], (v) => { applyTheme(v); redrawAccents(); })),
+      h('section', { class: 'entry-sec' },
+        h('h3', null, '글자'),
+        textPrefs()),
+      h('section', { class: 'entry-sec' },
+        h('h3', null, '하루 목표'),
+        choice('goal', [
+          { value: 0, label: '안 정함', sample: '—' },
+          { value: 2000, label: '하루', sample: '2천' },
+          { value: 5000, label: '하루', sample: '5천' },
+          { value: 10000, label: '하루', sample: '1만' },
+        ]),
+        h('p', { class: 'muted small' }, '정해 두면 작품 목록에 오늘 쓴 만큼 막대가 차요. 알림은 보내지 않아요.')),
       h('section', { class: 'entry-sec' },
         h('h3', null, '포인트 색'),
         accentPicker(),

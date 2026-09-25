@@ -1,6 +1,6 @@
 // 이 기기의 환경 설정. 작품 데이터가 아니라 쓰는 사람의 취향이라 localStorage에 둔다.
 const KEY = 'll:prefs';
-const DEFAULTS = { quotes: 'curly', accent: 'forest', theme: 'system' }; // quotes: 'curly' = “ ” ‘ ’, 'straight' = " ' / theme: 'system' | 'light' | 'dark'
+const DEFAULTS = { quotes: 'curly', accent: 'forest', theme: 'system', edSize: 'm', edLine: 'normal', edFont: 'sans', goal: 0, serialGap: true, serialTitle: false }; // quotes: 'curly' = “ ” ‘ ’, 'straight' = " ' / theme: 'system' | 'light' | 'dark'
 
 export function pref(name) {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }[name]; } catch { return DEFAULTS[name]; }
@@ -54,3 +54,26 @@ export function applyAccent(key = pref('accent')) {
 }
 applyTheme();
 applyAccent();
+
+// ---- 에디터 글자: 크기·줄 간격·글꼴 ----
+// 에디터는 글 칸 위에 형광펜·찾기·주석 층이 겹쳐 있어서, 모두 같은 값을 써야 줄이 어긋나지 않는다 (CSS 변수 하나로).
+export const TEXT_SIZES = { s: 15, m: 17, l: 19, xl: 21 };
+export const TEXT_LINES = { normal: 1.85, wide: 2.15 };
+export const TEXT_FONTS = {
+  sans: 'var(--font)',
+  serif: '"Noto Serif KR", "Noto Serif CJK KR", "Source Han Serif K", "Nanum Myeongjo", "AppleMyungjo", "Batang", serif',
+};
+export function applyText() {
+  const r = document.documentElement.style;
+  r.setProperty('--ed-size', (TEXT_SIZES[pref('edSize')] || 17) + 'px');
+  r.setProperty('--ed-lh', String(TEXT_LINES[pref('edLine')] || 1.85));
+  r.setProperty('--ed-font', TEXT_FONTS[pref('edFont')] || TEXT_FONTS.sans);
+  // 명조: 휴대폰에 한글 명조가 없는 경우가 많아서, 고른 사람만 웹 글꼴을 받아 온다 (한 번 받으면 브라우저가 기억)
+  if (pref('edFont') === 'serif' && !document.getElementById('serif-font')) {
+    document.head.append(Object.assign(document.createElement('link'), {
+      id: 'serif-font', rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap',
+    }));
+  }
+}
+applyText();
