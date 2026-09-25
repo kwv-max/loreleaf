@@ -3,6 +3,8 @@ import { h, topbar, toast } from '../ui.js';
 import { go, back } from '../router.js';
 import { startGuide } from '../guide.js';
 import { insertSample, hasSample } from '../sample.js';
+import { feedbackURL } from '../support.js';
+import { versionReady } from '../update.js';
 
 export const PRIVACY = '내 글은 어디에 있나요?';
 const TOPICS = [
@@ -149,6 +151,7 @@ export function helpScreen() {
       h('p', { class: 'help-privacy' }, '서버 없음 · 로그인 없음 · AI 기능 없음. 글은 이 기기에만 있어요.'),
       h('div', { class: 'help-actions' },
         h('button', { class: 'btn ghost', onclick: again }, '1분 튜토리얼 다시 하기'),
+        h('button', { class: 'btn ghost', onclick: async () => window.open(feedbackURL(await versionReady()), '_blank', 'noopener') }, '의견 보내기'),
         hasSample() ? null : h('button', { class: 'btn ghost', onclick: sample }, '샘플 작품 다시 넣기')),
       TOPICS.map(([title, lines]) => {
         const d = h('details', { class: 'help-topic' + (title === PRIVACY ? ' privacy' : ''), open: title === openTopic },

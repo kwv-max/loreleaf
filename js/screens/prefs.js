@@ -2,7 +2,7 @@
 import { h, topbar, toast } from '../ui.js';
 import { versionReady, checkUpdate, showUpdate } from '../update.js';
 import { openHelp, PRIVACY } from './help.js';
-import { supportLinks, supportSheet } from '../support.js';
+import { supportLinks, supportSheet, feedbackURL } from '../support.js';
 import { back } from '../router.js';
 import { pref, setPref, ACCENTS, applyAccent, applyTheme, applyText, isDark } from '../prefs.js';
 
@@ -128,5 +128,6 @@ export function prefsScreen() {
           }, '업데이트 확인')),
         storageInfo(),
         h('button', { class: 'link-btn', onclick: () => openHelp(PRIVACY) }, '내 글은 어디에 저장되나요?', h('span', { class: 'ic-inline' }, '›')),
+        h('button', { class: 'link-btn', onclick: async () => window.open(feedbackURL(await versionReady()), '_blank', 'noopener') }, '의견 보내기', h('span', { class: 'ic-inline' }, '›')),
         supportLinks().length ? h('button', { class: 'link-btn support-link', onclick: supportSheet }, '제작자 후원하기') : null)));
 }

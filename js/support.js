@@ -18,3 +18,19 @@ export function supportSheet() {
       h('b', null, s.label), h('span', { class: 'muted small' }, s.sub)))),
   { title: '제작자 후원하기' });
 }
+
+// ---- 의견 보내기 (구글 폼) ----
+// 앱 버전과 기기 종류만 미리 채운다. 원고나 설정은 절대 보내지 않는다.
+const FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSeYS8CfksYcKVb-wfVlgi4CZ_qQGGVPu74k09JUpvXQ24JgKw/viewform';
+const ENTRY = { device: 'entry.1534302936', version: 'entry.1142453265' };
+const device = () => {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return '아이폰';
+  if (/Android/.test(ua)) return '안드로이드';
+  return 'PC';
+};
+export function feedbackURL(version) {
+  const q = new URLSearchParams({ usp: 'pp_url', [ENTRY.device]: device() });
+  if (version) q.set(ENTRY.version, version);
+  return `${FORM}?${q}`;
+}
