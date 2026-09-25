@@ -5,6 +5,7 @@ import { h, icon, iconBtn, topbar, actions, josa } from '../ui.js';
 import { db, put, chaptersOf } from '../store.js';
 import { go, back } from '../router.js';
 import { orderOf, valueAt, viewAtFor, setViewAt } from '../timeline.js';
+import { emit } from '../guide.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const s = (tag, attrs, ...kids) => {
@@ -63,6 +64,7 @@ function layout(nodes, edges, fixed) {
 export function graphScreen({ wid, eid }) {
   const w = db.works.get(wid);
   if (!w) { go('/', { replace: true }); return null; }
+  emit('graph-opened');
   const order = orderOf(wid);
   let atCid = viewAtFor(wid);
   const atIdx = () => (atCid ? order.get(atCid) : Infinity);

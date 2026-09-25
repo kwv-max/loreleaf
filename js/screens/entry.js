@@ -512,7 +512,7 @@ export function entryScreen({ wid, eid }) {
         pruneSame(x.side, order);
       }
       if (isBlankRelation(r)) del('relations', r.id);
-      else put('relations', r);
+      else { put('relations', r); emit('relation-added'); }
     };
     const s = sheet(h('form', { class: 'sheet-form', onsubmit: (ev) => { ev.preventDefault(); s.close(); } },
       atCid ? h('p', { class: 'muted small' }, `${chTitle(atCid)} 시점`) : null,

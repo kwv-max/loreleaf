@@ -801,3 +801,14 @@ mark.multi {
 .support-row { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--bg); color: var(--ink); text-decoration: none; }
 
 .sample-note { margin: 0 4px 10px; }
+
+/* 해 보기 */
+.tours { margin: 4px 0 18px; }
+.tours h3 { margin: 0 4px 8px; font-size: 15px; }
+.tour-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tour-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--surface); text-align: left; }
+.tour-card b { font-size: 15px; }
+.tour-card span { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.tour-card .tour-check { color: var(--accent); font-size: 14px; }
+.tour-card:active { background: var(--line); }
+.guide-text b { font-weight: 700; }

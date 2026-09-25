@@ -101,6 +101,7 @@ export function editorScreen({ wid, cid }) {
     try { localStorage.setItem(posKey(cid), JSON.stringify({ sel: ta.selectionStart, y: window.scrollY })); } catch {}
   }, 300);
   function markDirty() {
+    if (!dirty) emit('text-edited');
     dirty = true;
     save();
     stash();
@@ -247,6 +248,7 @@ export function editorScreen({ wid, cid }) {
         ta.dispatchEvent(new Event('input'));
       }
       flags[i] = next;
+      emit(next ? 'quote-set' : 'quote-cleared');
       paint();
       markDirty();
     });
@@ -640,6 +642,7 @@ export function editorScreen({ wid, cid }) {
   // ---- 주석 ----
   const clip = (s, n = 26) => { s = s.replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n) + '…' : s; };
   function openNote(id) {
+    emit('note-opened');
     const n = notes.find((x) => x.id === id);
     if (!n) return;
     closeCard();
@@ -666,6 +669,7 @@ export function editorScreen({ wid, cid }) {
     if (!text) return;
     asOneStep(() => {
       notes.push({ id: uid(), start: s, end: e, text, createdAt: Date.now() });
+      emit('note-added');
       paint();
       markDirty();
     });
@@ -777,6 +781,7 @@ export function editorScreen({ wid, cid }) {
 
   // ---- 이전 버전 ----
   async function versionsSheet() {
+    emit('versions-opened');
     await snap(); // 지금 모습도 한 벌 (목록 맨 위 = 지금)
     const now = { text: ta.value, quotes: packFlags(flags) };
     const list = (await versionsOf(cid)).filter((v) => v.text !== now.text || JSON.stringify(v.quotes || {}) !== JSON.stringify(now.quotes));
@@ -825,6 +830,7 @@ export function editorScreen({ wid, cid }) {
       markDirty();
     });
     toast(`${whenLabel(v.at)} 버전으로 되돌렸어요.`, { action: '취소', onAction: undo, duration: 6000 });
+    emit('version-restored');
   }
 
   // ---- 메뉴 ----

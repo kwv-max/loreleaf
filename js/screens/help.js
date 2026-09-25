@@ -1,7 +1,7 @@
 // 도움말. 필요한 사람만 찾아 읽는 곳. 첫 화면에서 억지로 보여주지 않는다.
 import { h, topbar, toast } from '../ui.js';
 import { go, back } from '../router.js';
-import { startGuide } from '../guide.js';
+import { startGuide, startTour, TOURS, toursDone } from '../guide.js';
 import { insertSample, hasSample } from '../sample.js';
 import { feedbackURL } from '../support.js';
 import { versionReady } from '../update.js';
@@ -153,6 +153,15 @@ export function helpScreen() {
         h('button', { class: 'btn ghost', onclick: again }, '1분 튜토리얼 다시 하기'),
         h('button', { class: 'btn ghost', onclick: async () => window.open(feedbackURL(await versionReady()), '_blank', 'noopener') }, '의견 보내기'),
         hasSample() ? null : h('button', { class: 'btn ghost', onclick: sample }, '샘플 작품 다시 넣기')),
+      // 기능별 '해 보기': 샘플 작품에서 2~3단계씩 직접 해 본다
+      h('section', { class: 'tours' },
+        h('h3', null, '해 보기', h('span', { class: 'muted small' }, ' 샘플 작품에서 하나씩')),
+        h('div', { class: 'tour-grid' }, TOURS.map((t) => {
+          const done = toursDone().includes(t.id);
+          return h('button', { class: 'tour-card' + (done ? ' done' : ''), onclick: () => startTour(t.id) },
+            h('b', null, t.title, done ? h('span', { class: 'tour-check' }, ' ✓') : null),
+            h('span', null, t.desc));
+        }))),
       TOPICS.map(([title, lines]) => {
         const d = h('details', { class: 'help-topic' + (title === PRIVACY ? ' privacy' : ''), open: title === openTopic },
           h('summary', null, title),

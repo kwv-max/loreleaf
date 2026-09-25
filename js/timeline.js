@@ -5,6 +5,7 @@
 import { h, sheet, autogrow, toast } from './ui.js';
 import { db, put, uid, chaptersOf, recordStore, sidesFor, otherOf } from './store.js';
 import { buildMatcher } from './highlight.js';
+import { emit } from './guide.js';
 
 // 작품의 화 순서: chapterId → 0, 1, 2 ...
 export const orderOf = (wid) => new Map(chaptersOf(wid).map((c, i) => [c.id, i]));
@@ -196,8 +197,8 @@ export function factSheet(e, f, { cid = null, mode = 'auto', title = null } = {}
         let dropped = 0;
         if (mode === 'change' && order.get(cid) === 0 && !f.changes?.some((c) => c.chapterId === cid)) { f.value = v; dropped = pruneSame(f, order); put(recordStore(e), e); }
         else if (mode === 'change' || (needChoice && asChange)) {
-          if (v !== valueAt(f, at(), order).value) dropped = setChange(e, f, cid, v);
-        } else if (src.rec) dropped = setChange(e, f, src.rec.chapterId, v);
+          if (v !== valueAt(f, at(), order).value) { dropped = setChange(e, f, cid, v); emit('change-recorded'); }
+        } else if (src.rec) { dropped = setChange(e, f, src.rec.chapterId, v); if (src.rec.chapterId === cid) emit('change-recorded'); }
         else { f.value = v; dropped = pruneSame(f, order); put(recordStore(e), e); }
         if (dropped) toast(`앞 화와 같은 값이 된 기록 ${dropped}개를 지웠어요.`);
         saved = true;
