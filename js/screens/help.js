@@ -4,7 +4,17 @@ import { go, back } from '../router.js';
 import { startGuide } from '../guide.js';
 import { insertSample, hasSample } from '../sample.js';
 
+export const PRIVACY = '내 글은 어디에 있나요?';
 const TOPICS = [
+  [PRIVACY, [
+    '쓴 글과 설정은 모두 이 휴대폰 안(이 브라우저의 저장 공간)에만 있어요. 갈피에는 서버가 없어서, 글이 어디로도 올라가지 않아요.',
+    '회원가입도 로그인도 없어요. 만든 사람도 여러분의 글을 볼 수 없어요.',
+    'AI가 글을 읽거나 대신 쓰지 않아요.',
+    '갈피는 AI 코딩 도구의 도움을 받아 만들었어요. 앱 안에는 AI 기능이 없고, 여러분의 글은 어떤 AI에도 보내지지 않아요. 예시용 샘플 작품의 글은 AI로 만들었어요.',
+    '인터넷은 앱을 열 때 최신 앱 파일과 새 버전이 있는지 확인하는 데만 써요(인터넷이 없어도 글은 써져요). 이때 앱이 올라가 있는 곳(GitHub)에 보통의 접속 기록이 남을 수 있지만, 글 내용은 보내지 않아요. 명조 글꼴을 고르면 글꼴 파일을 구글에서 한 번 받아 와요.',
+    '그래서 백업이 중요해요. 휴대폰을 잃어버리거나, 앱을 지우거나, 브라우저 데이터를 지우면 글도 함께 사라져요. 가끔 작품 목록 ⋯ → ‘백업 파일 저장’으로 파일을 남겨 두세요.',
+    '다른 기기로 옮길 때도 백업 파일로 옮겨요. 새 기기에서 ‘백업 파일 불러오기’를 누르면 돼요.',
+  ]],
   ['작품과 화', [
     '작품 목록 아래의 ‘새 작품’으로 시작해요. 제목만 정하면 1화가 함께 만들어져요.',
     '작품 안의 ‘원고’ 탭에서 화를 추가하고, 각 화 오른쪽의 ⋯ 로 제목 바꾸기·삭제를 할 수 있어요.',
@@ -121,6 +131,10 @@ const TOPICS = [
   ]],
 ];
 
+// 다른 화면에서 특정 항목을 펼친 채로 열 때
+let openTopic = null;
+export function openHelp(title) { openTopic = title; go('/help'); }
+
 export function helpScreen() {
   const again = () => { startGuide(); go('/', { replace: true }); };
   const sample = () => {
@@ -132,10 +146,15 @@ export function helpScreen() {
     topbar({ onBack: () => back('/'), title: '도움말' }),
     h('main', { class: 'content help' },
       h('p', { class: 'help-lead' }, '갈피는 글을 대신 써 주지 않아요. 당신이 쓰는 동안, 설정을 대신 기억해 줄 뿐이에요.'),
+      h('p', { class: 'help-privacy' }, '서버 없음 · 로그인 없음 · AI 기능 없음. 글은 이 기기에만 있어요.'),
       h('div', { class: 'help-actions' },
         h('button', { class: 'btn ghost', onclick: again }, '1분 튜토리얼 다시 하기'),
         hasSample() ? null : h('button', { class: 'btn ghost', onclick: sample }, '샘플 작품 다시 넣기')),
-      TOPICS.map(([title, lines]) => h('details', { class: 'help-topic' },
-        h('summary', null, title),
-        h('ul', null, lines.map((l) => h('li', null, l)))))));
+      TOPICS.map(([title, lines]) => {
+        const d = h('details', { class: 'help-topic' + (title === PRIVACY ? ' privacy' : ''), open: title === openTopic },
+          h('summary', null, title),
+          h('ul', null, lines.map((l) => h('li', null, l))));
+        if (title === openTopic) { openTopic = null; setTimeout(() => d.scrollIntoView({ block: 'start' }), 0); }
+        return d;
+      })));
 }

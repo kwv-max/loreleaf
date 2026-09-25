@@ -114,7 +114,9 @@ export function manuscriptScreen({ wid }) {
     setTimeout(() => document.querySelector('.chapters .row.current')?.scrollIntoView({ block: 'center' }), 0);
   }
 
-  return shell(w, 'ms', [tools, body],
+  // 샘플은 AI로 만든 예시 글이라는 걸 밝혀 둔다
+  const sampleNote = w.sample ? h('p', { class: 'muted small sample-note' }, '예시용 샘플 작품이에요. 글은 AI로 만들었어요.') : null;
+  return shell(w, 'ms', [sampleNote, tools, body],
     h('div', { class: 'bottom-bar' }, reorder
       ? h('button', { class: 'btn primary', onclick: () => finishReorder(wid) }, '완료')
       : h('button', {

@@ -1,6 +1,8 @@
 // 환경 설정. 취향이 갈리는 것만 여기에. 항목이 늘어도 한 화면에서 끝나게.
 import { h, topbar, toast } from '../ui.js';
 import { versionReady, checkUpdate, showUpdate } from '../update.js';
+import { openHelp, PRIVACY } from './help.js';
+import { supportLinks, supportSheet } from '../support.js';
 import { back } from '../router.js';
 import { pref, setPref, ACCENTS, applyAccent, applyTheme, applyText, isDark } from '../prefs.js';
 
@@ -51,6 +53,22 @@ function textPrefs() {
     ]),
     preview,
     h('p', { class: 'muted small' }, '글 쓰는 화면에만 적용돼요. 명조는 처음 고를 때 글꼴을 한 번 받아 와요(인터넷 필요). 그 뒤로는 오프라인에서도 돼요.'));
+}
+
+// 이 기기에서 쓰는 저장 공간과, 브라우저가 함부로 지우지 않게 보호되는지
+function storageInfo() {
+  const el = h('p', { class: 'muted small storage-info' }, '저장 공간 확인 중…');
+  (async () => {
+    try {
+      const [est, kept] = await Promise.all([navigator.storage?.estimate?.(), navigator.storage?.persisted?.()]);
+      const mb = est?.usage != null ? (est.usage / 1048576).toFixed(1) + 'MB' : null;
+      el.textContent = [
+        mb && `이 기기에 ${mb} 쓰는 중`,
+        kept === true ? '브라우저가 함부로 지우지 않게 보호돼요' : kept === false ? '보호 안 됨 — 홈 화면에 설치하면 보호돼요' : null,
+      ].filter(Boolean).join(' · ') || '저장 공간 정보를 볼 수 없는 브라우저예요.';
+    } catch { el.textContent = '저장 공간 정보를 볼 수 없는 브라우저예요.'; }
+  })();
+  return el;
 }
 
 function versionLabel() {
@@ -107,5 +125,8 @@ export function prefsScreen() {
               b.disabled = false;
               if (v) showUpdate(); else toast('최신 버전이에요.');
             },
-          }, '업데이트 확인')))));
+          }, '업데이트 확인')),
+        storageInfo(),
+        h('button', { class: 'link-btn', onclick: () => openHelp(PRIVACY) }, '내 글은 어디에 저장되나요?', h('span', { class: 'ic-inline' }, '›')),
+        supportLinks().length ? h('button', { class: 'link-btn support-link', onclick: supportSheet }, '제작자 후원하기') : null)));
 }
