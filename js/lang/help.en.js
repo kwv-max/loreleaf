@@ -119,6 +119,7 @@ export default [
     'The first time you back up, choose where to save and a file name. After that, the same file is overwritten, so files don’t pile up. Use “Back up to another file” to keep a separate copy.',
     'Your writing is stored in this browser. Clearing browser data clears it too, so back up now and then.',
     'If your last backup is over a week old and you’ve written since, “Back up now” appears on the work list. Close it with × to hide it for three days.',
+    'In a Safari tab on iPhone, Safari may clear a site you haven’t opened for a week. So there the “Add to Home Screen” tip comes back three days after you close it, and the backup reminder appears every three days. Once it’s on your Home Screen, this isn’t a worry.',
     'When you load a backup, you’ll first see what it contains and how it differs from this device. “Merge” keeps anything you edited more recently here; “Restore exactly as backed up” keeps your current text in Previous versions and goes back to the backup.',
     'Deleted a work? Tap “Undo” in the message that appears.',
     'If Loreleaf is open in two places (the installed app and a browser tab, say), only the one opened last writes; the other saves and pauses, so the same text is never overwritten.',

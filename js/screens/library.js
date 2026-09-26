@@ -182,18 +182,22 @@ export function libraryScreen() {
     h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), t('lib.newWork'))));
 }
 
-// 아이폰 사파리에서는 설치 버튼이 따로 뜨지 않는다. 홈 화면에 추가하는 법을 한 번 알려 준다.
-// 홈 화면에 추가해야 앱처럼 열리고, 사파리가 오래 안 쓴 사이트의 저장 공간을 비울 때도 글이 안전하다.
+// 아이폰·아이패드 사파리 탭에서 쓰는 중인지 (홈 화면에 추가한 앱이 아니면).
+// 사파리는 7일 동안 방문하지 않은 사이트의 저장 공간을 비울 수 있어서, 이때만 안내와 백업 알림을 더 자주 한다.
+const onIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const atRisk = () => onIOS && !navigator.standalone;
+
+// 아이폰 사파리에서는 설치 버튼이 따로 뜨지 않는다. 홈 화면에 추가하는 법을 알려 준다.
+// 닫아도 사흘 뒤 다시 (홈 화면에 추가하면 더는 안 뜬다). 예전에 '1'로 영영 닫아 둔 것도 다시 보인다.
 function iosInstallTip() {
-  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  let seen = false;
-  try { seen = !!localStorage.getItem('ll:ios-tip'); } catch {}
-  if (!ios || navigator.standalone || seen) return null;
+  let until = 0;
+  try { until = +localStorage.getItem('ll:ios-tip') || 0; } catch {}
+  if (!atRisk() || Date.now() < until) return null;
   const el = h('div', { class: 'ios-tip' },
     h('div', null,
       h('b', null, t('ios.title')),
       h('p', null, t('ios.body'))),
-    h('button', { class: 'icon-btn sm', 'aria-label': t('common.close'), onclick: () => { try { localStorage.setItem('ll:ios-tip', '1'); } catch {} el.remove(); } }, icon('close')));
+    h('button', { class: 'icon-btn sm', 'aria-label': t('common.close'), onclick: () => { try { localStorage.setItem('ll:ios-tip', String(Date.now() + 3 * DAY)); } catch {} el.remove(); } }, icon('close')));
   return el;
 }
 
@@ -209,7 +213,8 @@ function updateTip() {
 }
 
 // 백업 알림: 마지막 백업 뒤로 글이 바뀌었고 7일이 지났을 때 (한 번도 안 했으면 글이 좀 쌓였을 때만).
-// 누르면 정해 둔 파일에 바로 덮어쓴다. 닫으면 사흘 동안 조용히.
+// 아이폰 사파리 탭이면 사흘마다 (7일이면 이미 지워졌을 수 있다).
+// 누르면 정해 둔 파일에 바로 덮어쓴다. 닫으면 사흘 동안(아이폰 사파리 탭이면 하루) 조용히.
 const DAY = 24 * 3600 * 1000;
 function backupTip() {
   let snooze = 0;
@@ -220,7 +225,7 @@ function backupTip() {
   const last = lastBackup();
   const changed = Math.max(...mine.map((w) => w.updatedAt || 0));
   if (last) {
-    if (changed <= last.at || Date.now() - last.at < 7 * DAY) return null;
+    if (changed <= last.at || Date.now() - last.at < (atRisk() ? 3 : 7) * DAY) return null;
   } else {
     const ids = new Set(mine.map((w) => w.id));
     const chars = [...db.chapters.values()].reduce((n, c) => n + (ids.has(c.workId) ? c.text.length : 0), 0);
@@ -231,7 +236,7 @@ function backupTip() {
     icon('note', 'type-ic'),
     h('div', null,
       h('b', null, last ? t('backup.tipDays', { days }) : t('backup.tipNever')),
-      h('p', null, t('backup.tipBody'))),
+      h('p', null, atRisk() ? t('backup.tipBodyIos') : t('backup.tipBody'))),
     h('button', {
       class: 'update-go',
       onclick: async () => {
@@ -245,7 +250,7 @@ function backupTip() {
     }, t('backup.now')),
     h('button', {
       class: 'icon-btn sm', 'aria-label': t('backup.snooze'),
-      onclick: () => { try { localStorage.setItem('ll:backup-snooze', String(Date.now() + 3 * DAY)); } catch {} el.remove(); },
+      onclick: () => { try { localStorage.setItem('ll:backup-snooze', String(Date.now() + (atRisk() ? 1 : 3) * DAY)); } catch {} el.remove(); },
     }, icon('close')));
   return el;
 }

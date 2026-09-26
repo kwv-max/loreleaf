@@ -128,7 +128,7 @@ export default {
   'serial.note': 'Notes are left out; dialogue lines get the quote style from Settings.',
   'serial.sheetTitle': '{title} · Copy for serial',
   'ios.title': 'Add to your Home Screen',
-  'ios.body': 'Tap Share below → “Add to Home Screen” to open it like an app. In Safari alone, writing may be cleared if you don’t open it for a long time.',
+  'ios.body': 'If you only use it in a Safari tab, your iPhone may clear your writing when you don’t open it for a week. Tap Share below → “Add to Home Screen” to open it like an app and keep your writing safe.',
   'update.tipTitle': 'A new version is available',
   'update.tipMore': ({ n }) => ` and ${n} more`,
   'update.go': 'Update',
@@ -646,4 +646,7 @@ export default {
 
   // ---- 도움말: 해 보기 ----
   'help.tourDone': 'Done',
+
+  // ---- 백업 알림: 아이폰 사파리 탭 ----
+  'backup.tipBodyIos': 'Until you add it to your Home Screen, your iPhone may clear sites you haven’t opened in a while. Save a file often.',
 };

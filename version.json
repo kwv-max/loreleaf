@@ -1,12 +1,15 @@
 {
-  "version": "2026.09.26.14",
+  "version": "2026.09.26.15",
   "notes": [
-    "도움말의 ‘해 보기’를 두 칸 카드에서 아이콘이 붙은 한 줄씩 목록으로 바꿔 읽기 편하게 했어요. 해 본 것은 ✓로 보여요."
+    "아이폰 사파리 탭에서 쓰면, ‘홈 화면에 추가’ 안내가 글이 지워질 수 있다는 걸 분명히 알리고 닫아도 사흘 뒤 다시 떠요.",
+    "같은 경우 백업 알림도 일주일이 아니라 사흘마다 떠요. 안드로이드와 홈 화면에 추가한 아이폰은 그대로예요."
   ],
   "notes_en": [
-    "Help’s “Try it” list is now one row per feature with an icon instead of a two-column grid, so it reads more easily. Ones you have done show ✓."
+    "In a Safari tab on iPhone, the “Add to Home Screen” tip now says clearly that writing may be cleared, and returns three days after you close it.",
+    "There the backup reminder also comes every three days instead of weekly. Android and Home Screen installs are unchanged."
   ],
   "notes_ja": [
-    "ヘルプの「試してみる」を2列のカードから、アイコン付きの1行ずつのリストに変えて読みやすくしました。体験済みのものは ✓ で表示されます。"
+    "iPhoneのSafariのタブで使うと、「ホーム画面に追加」の案内が原稿が消えうることをはっきり伝え、閉じても3日後にまた出ます。",
+    "この場合、バックアップの案内も1週間ではなく3日ごとに出ます。Androidとホーム画面に追加したiPhoneはこれまでどおりです。"
   ]
 }
