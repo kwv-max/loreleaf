@@ -64,8 +64,12 @@ function storageInfo() {
     try {
       const [est, kept] = await Promise.all([navigator.storage?.estimate?.(), navigator.storage?.persisted?.()]);
       const mb = est?.usage != null ? (est.usage / 1048576).toFixed(1) + 'MB' : null;
+      // 브라우저가 이 사이트에 허락한 공간 (기기 여유 공간에 따라 달라진다)
+      const q = est?.quota;
+      const quota = q ? (q >= 1073741824 ? `${(q / 1073741824).toFixed(q >= 10737418240 ? 0 : 1)}GB` : `${Math.round(q / 1048576)}MB`) : null;
       el.textContent = [
         mb && t('prefs.storage.usage', { mb }),
+        quota && t('prefs.storage.quota', { size: quota }),
         kept === true ? t('prefs.storage.kept') : kept === false ? t('prefs.storage.notKept') : null,
       ].filter(Boolean).join(' · ') || t('prefs.storage.unknown');
     } catch { el.textContent = t('prefs.storage.unknown'); }

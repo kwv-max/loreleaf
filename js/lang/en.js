@@ -649,4 +649,7 @@ export default {
 
   // ---- 백업 알림: 아이폰 사파리 탭 ----
   'backup.tipBodyIos': 'Until you add it to your Home Screen, your iPhone may clear sites you haven’t opened in a while. Save a file often.',
+
+  // ---- 저장 공간: 허락된 공간 ----
+  'prefs.storage.quota': 'up to about {size} available',
 };

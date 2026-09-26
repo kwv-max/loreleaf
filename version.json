@@ -1,15 +1,15 @@
 {
-  "version": "2026.09.26.15",
+  "version": "2026.09.26.16",
   "notes": [
-    "아이폰 사파리 탭에서 쓰면, ‘홈 화면에 추가’ 안내가 글이 지워질 수 있다는 걸 분명히 알리고 닫아도 사흘 뒤 다시 떠요.",
-    "같은 경우 백업 알림도 일주일이 아니라 사흘마다 떠요. 안드로이드와 홈 화면에 추가한 아이폰은 그대로예요."
+    "다 쓴 화에 남아 있던 오래된 이전 버전도 하루 한 번 같은 규칙으로 정리해서, 공간을 덜 써요.",
+    "환경 설정의 저장 공간 줄에 이 기기에서 최대 얼마까지 쓸 수 있는지도 보여요."
   ],
   "notes_en": [
-    "In a Safari tab on iPhone, the “Add to Home Screen” tip now says clearly that writing may be cleared, and returns three days after you close it.",
-    "There the backup reminder also comes every three days instead of weekly. Android and Home Screen installs are unchanged."
+    "Old previous versions left on finished chapters are now tidied once a day by the same rules, so they take less space.",
+    "The storage line in Settings now also shows how much this device lets the app use."
   ],
   "notes_ja": [
-    "iPhoneのSafariのタブで使うと、「ホーム画面に追加」の案内が原稿が消えうることをはっきり伝え、閉じても3日後にまた出ます。",
-    "この場合、バックアップの案内も1週間ではなく3日ごとに出ます。Androidとホーム画面に追加したiPhoneはこれまでどおりです。"
+    "書き終えた話に残っていた古い以前のバージョンも、1日1回同じ決まりで整理して容量を節約します。",
+    "設定の保存容量の行に、この端末で最大どれだけ使えるかも表示されます。"
   ]
 }

@@ -15,6 +15,7 @@ import { prefsScreen } from './screens/prefs.js';
 import { searchScreen } from './screens/search.js';
 import { graphScreen } from './screens/graph.js';
 import { initUpdates, onUpdate, versionReady } from './update.js';
+import { pruneAllVersions } from './versions.js';
 
 route('/', libraryScreen);
 route('/help', helpScreen);
@@ -114,6 +115,7 @@ async function boot() {
   initUpdates();
   onUpdate(() => { if (path() === '/') render(); });
   freshStyles();
+  setTimeout(pruneAllVersions, 5000); // 다 쓴 화의 오래된 이전 버전도 솎기 (하루 한 번)
   render();
   if (first) welcome();
   if (!ok) toast(t('app.noStorage'), { duration: 6000 });

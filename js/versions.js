@@ -78,6 +78,28 @@ async function prune(list) {
   if (drop.length) await run('readwrite', (s) => { for (const id of drop) s.delete(id); });
 }
 
+// 켤 때 하루 한 번: 모든 화의 이전 버전을 같은 규칙으로 솎는다.
+// 평소에는 그 화에 새 버전이 생길 때만 솎아서, 다 쓴 화에는 오래된 버전이 그대로 남아 있기 때문.
+const PRUNED = 'll:versions-pruned';
+export async function pruneAllVersions() {
+  try { if (Date.now() - (+localStorage.getItem(PRUNED) || 0) < D) return; } catch {}
+  const byChapter = new Map();
+  await run('readonly', (s) => {
+    const q = s.openCursor();
+    q.onsuccess = () => {
+      const c = q.result;
+      if (!c) return;
+      const { id, at, chapterId } = c.value; // 글은 들고 있지 않는다
+      if (!byChapter.has(chapterId)) byChapter.set(chapterId, []);
+      byChapter.get(chapterId).push({ id, at });
+      c.continue();
+    };
+    return null;
+  });
+  for (const list of byChapter.values()) await prune(list.sort((a, b) => b.at - a.at));
+  try { localStorage.setItem(PRUNED, String(Date.now())); } catch {}
+}
+
 // "오늘 23:10", "어제 08:02", "9월 21일 14:00"
 export function whenLabel(at) {
   const d = new Date(at), now = new Date();
