@@ -1,12 +1,15 @@
 {
-  "version": "2026.09.26.11",
+  "version": "2026.09.26.12",
   "notes": [
-    "업데이트 직후 새 화면이 스타일 없이 깨져 보이던 문제를 고쳤어요."
+    "흐린 글씨(날짜·글자 수·설명)를 조금 더 진하게, 작은 글씨를 조금 더 크게 해서 읽기 편하게 했어요.",
+    "색 고르기, 별명 지우기 같은 작은 버튼이 손가락에 더 잘 눌려요."
   ],
   "notes_en": [
-    "Fixed new screens sometimes looking unstyled right after an update."
+    "Faint text (dates, counts, hints) is a little darker and small text a little larger, so it reads more easily.",
+    "Small buttons like color swatches and alias remove are easier to tap."
   ],
   "notes_ja": [
-    "アップデート直後に新しい画面のスタイルが崩れて見えることがある問題を直しました。"
+    "薄い文字（日付・字数・説明）を少し濃く、小さな文字を少し大きくして読みやすくしました。",
+    "色の選択や別名の削除など、小さなボタンが指で押しやすくなりました。"
   ]
 }
