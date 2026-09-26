@@ -1,15 +1,12 @@
 {
-  "version": "2026.09.26.12",
+  "version": "2026.09.26.13",
   "notes": [
-    "흐린 글씨(날짜·글자 수·설명)를 조금 더 진하게, 작은 글씨를 조금 더 크게 해서 읽기 편하게 했어요.",
-    "색 고르기, 별명 지우기 같은 작은 버튼이 손가락에 더 잘 눌려요."
+    "작품 목록에서 ‘오늘 쓴 양’이 이어 쓰기 카드 안으로 들어가, 카드에 붙어 답답해 보이던 모습을 정리했어요."
   ],
   "notes_en": [
-    "Faint text (dates, counts, hints) is a little darker and small text a little larger, so it reads more easily.",
-    "Small buttons like color swatches and alias remove are easier to tap."
+    "On the work list, today’s count now sits inside the Continue writing card instead of crowding right under it."
   ],
   "notes_ja": [
-    "薄い文字（日付・字数・説明）を少し濃く、小さな文字を少し大きくして読みやすくしました。",
-    "色の選択や別名の削除など、小さなボタンが指で押しやすくなりました。"
+    "作品一覧の「今日書いた量」を続きを書くカードの中に入れ、カードに詰まって見えていた表示を整えました。"
   ]
 }

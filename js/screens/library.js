@@ -151,7 +151,8 @@ export function libraryScreen() {
     return h('button', { class: 'resume', onclick: () => go(`/w/${recent.id}/c/${c.id}`) },
       h('div', { class: 'resume-label' }, t('lib.resume')),
       h('div', { class: 'resume-title' }, recent.title, h('span', { class: 'muted' }, ' · ' + c.title)),
-      tail ? h('div', { class: 'resume-tail' }, '…' + tail) : h('div', { class: 'resume-tail muted' }, t('lib.emptyChapter')));
+      tail ? h('div', { class: 'resume-tail' }, '…' + tail) : h('div', { class: 'resume-tail muted' }, t('lib.emptyChapter')),
+      todayLine()); // 오늘 쓴 양은 이어 쓰기 카드 안에 (카드가 없을 때만 따로)
   })();
 
   const list = works.length
@@ -175,8 +176,7 @@ export function libraryScreen() {
       updateTip(),
       backupTip(),
       iosInstallTip(),
-      resume,
-      todayLine(),
+      resume || todayLine(),
       works.length ? h('h2', { class: 'section' }, t('lib.works')) : null,
       list),
     h('div', { class: 'bottom-bar' }, h('button', { class: 'btn primary', onclick: newWork }, icon('plus'), t('lib.newWork'))));
