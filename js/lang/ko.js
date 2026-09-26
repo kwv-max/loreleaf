@@ -645,4 +645,7 @@ export default {
   'ask.att.filter': '이름으로 찾기',
   'ask.att.noEntries': '아직 설정 항목이 없어요.',
   'ask.att.noCh': '아직 회차가 없어요.',
+
+  // ---- 도움말: 해 보기 ----
+  'help.tourDone': '해 봤어요',
 };

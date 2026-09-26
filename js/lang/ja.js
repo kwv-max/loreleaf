@@ -643,4 +643,7 @@ export default {
   'ask.att.filter': '名前で探す',
   'ask.att.noEntries': 'まだ設定項目がありません。',
   'ask.att.noCh': 'まだ話がありません。',
+
+  // ---- 도움말: 해 보기 ----
+  'help.tourDone': '体験済み',
 };

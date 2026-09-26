@@ -643,4 +643,7 @@ export default {
   'ask.att.filter': 'Find by name',
   'ask.att.noEntries': 'No world notes yet.',
   'ask.att.noCh': 'No chapters yet.',
+
+  // ---- 도움말: 해 보기 ----
+  'help.tourDone': 'Done',
 };

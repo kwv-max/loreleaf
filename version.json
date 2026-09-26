@@ -1,12 +1,12 @@
 {
-  "version": "2026.09.26.13",
+  "version": "2026.09.26.14",
   "notes": [
-    "작품 목록에서 ‘오늘 쓴 양’이 이어 쓰기 카드 안으로 들어가, 카드에 붙어 답답해 보이던 모습을 정리했어요."
+    "도움말의 ‘해 보기’를 두 칸 카드에서 아이콘이 붙은 한 줄씩 목록으로 바꿔 읽기 편하게 했어요. 해 본 것은 ✓로 보여요."
   ],
   "notes_en": [
-    "On the work list, today’s count now sits inside the Continue writing card instead of crowding right under it."
+    "Help’s “Try it” list is now one row per feature with an icon instead of a two-column grid, so it reads more easily. Ones you have done show ✓."
   ],
   "notes_ja": [
-    "作品一覧の「今日書いた量」を続きを書くカードの中に入れ、カードに詰まって見えていた表示を整えました。"
+    "ヘルプの「試してみる」を2列のカードから、アイコン付きの1行ずつのリストに変えて読みやすくしました。体験済みのものは ✓ で表示されます。"
   ]
 }

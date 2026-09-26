@@ -811,12 +811,9 @@ mark.multi {
 /* 해 보기 */
 .tours { margin: 4px 0 18px; }
 .tours h3 { margin: 0 4px 8px; font-size: 15px; }
-.tour-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tour-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--surface); text-align: left; }
-.tour-card b { font-size: 15px; }
-.tour-card span { font-size: 13px; color: var(--muted); line-height: 1.45; }
-.tour-card .tour-check { color: var(--accent); font-size: 14px; }
-.tour-card:active { background: var(--line); }
+.tours h3 .muted { margin-left: 8px; font-weight: 500; }
+.tour-list .row-sub.tour-desc { white-space: normal; line-height: 1.45; }
+.tour-done { flex: none; width: 24px; margin-right: 12px; text-align: center; color: var(--accent); font-weight: 700; }
 .guide-text b { font-weight: 700; }
 
 /* ---------- 자체 드롭다운 · 한 줄 설정 ---------- */
